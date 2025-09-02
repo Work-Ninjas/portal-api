@@ -25,14 +25,12 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
-    - name: Log in to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
     - name: Log in to Azure Container Registry
-      run: |
-        az acr login --name portalapiacr
+      uses: docker/login-action@v2
+      with:
+        registry: portalapiacr.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
@@ -46,18 +44,16 @@ jobs:
         cache-to: type=gha,mode=max
 
     - name: Deploy to Container Apps
-      run: |
-        az containerapp update \
-          --name ${{ env.CONTAINER_APP_NAME }} \
-          --resource-group ${{ env.RESOURCE_GROUP }} \
-          --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-          --set-env-vars \
-            "NODE_ENV=production" \
-            "PORT=3000" \
-            "ALLOWED_ORIGINS=https://datahubportal.com,https://staging.datahubportal.com" \
-            "CORS_MAX_AGE=600" \
-            "APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:app-insights-connection-string" \
-            "APPINSIGHTS_INSTRUMENTATIONKEY=secretref:app-insights-instrumentation-key"
+      uses: azure/container-apps-deploy-action@v1
+      with:
+        containerAppName: ${{ env.CONTAINER_APP_NAME }}
+        resourceGroup: ${{ env.RESOURCE_GROUP }}
+        imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        environmentVariables: |
+          NODE_ENV=production
+          PORT=3000
+          ALLOWED_ORIGINS=https://datahubportal.com,https://staging.datahubportal.com
+          CORS_MAX_AGE=600
 
     - name: Verify deployment
       run: |
