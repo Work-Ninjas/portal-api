@@ -6,7 +6,7 @@ const app = express();
 // Environment variables
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || 'https://datahubportal.com,https://staging.datahubportal.com';
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || 'https://datahubportal.com,https://staging.datahubportal.com,https://docs.datahubportal.com,https://docs.staging.datahubportal.com';
 
 // CORS configuration
 const corsOptions = {
