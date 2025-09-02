@@ -1,0 +1,276 @@
+# Azure Container Apps Configuration for Portal API
+
+apiVersion: apps/v1
+kind: ConfigMap
+metadata:
+  name: portal-api-azure-config
+data:
+  # Production Container App
+  production_container_app: |
+    {
+      "name": "datahubportal-api-prod",
+      "resourceGroup": "datahubportal-prod-rg",
+      "location": "East US 2",
+      "environment": "datahubportal-prod-env",
+      "configuration": {
+        "secrets": [
+          {
+            "name": "api-key-secret",
+            "value": "prod_secure_api_key_azure_here"
+          },
+          {
+            "name": "storage-secret-key",
+            "value": "prod_azure_storage_secret_key"
+          },
+          {
+            "name": "app-insights-connection-string",
+            "value": "${APPLICATIONINSIGHTS_CONNECTION_STRING}"
+          },
+          {
+            "name": "app-insights-instrumentation-key",
+            "value": "${APPINSIGHTS_INSTRUMENTATIONKEY}"
+          }
+        ],
+        "activeRevisionsMode": "Single",
+        "ingress": {
+          "external": true,
+          "targetPort": 3000,
+          "allowInsecure": false,
+          "traffic": [
+            {
+              "weight": 100,
+              "latestRevision": true
+            }
+          ],
+          "customDomains": [
+            {
+              "name": "api.datahubportal.com",
+              "bindingType": "SniEnabled",
+              "certificateId": "/subscriptions/{subscription}/resourceGroups/datahubportal-prod-rg/providers/Microsoft.App/managedEnvironments/datahubportal-prod-env/certificates/api-datahubportal-com-cert"
+            }
+          ]
+        }
+      },
+      "template": {
+        "containers": [
+          {
+            "image": "datahubportal.azurecr.io/portal-api:v1.0.0",
+            "name": "portal-api",
+            "resources": {
+              "cpu": "1.0",
+              "memory": "2.0Gi"
+            },
+            "env": [
+              {
+                "name": "NODE_ENV",
+                "value": "production"
+              },
+              {
+                "name": "PORT", 
+                "value": "3000"
+              },
+              {
+                "name": "ALLOWED_ORIGINS",
+                "value": "https://datahubportal.com,https://staging.datahubportal.com"
+              },
+              {
+                "name": "CORS_MAX_AGE",
+                "value": "600"
+              },
+              {
+                "name": "RATE_LIMIT_MAX_REQUESTS",
+                "value": "60"
+              },
+              {
+                "name": "FILES_RATE_LIMIT_MAX_REQUESTS", 
+                "value": "120"
+              },
+              {
+                "name": "HSTS_MAX_AGE",
+                "value": "31536000"
+              },
+              {
+                "name": "HSTS_INCLUDE_SUBDOMAINS",
+                "value": "true"
+              },
+              {
+                "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "secretRef": "app-insights-connection-string"
+              },
+              {
+                "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                "secretRef": "app-insights-instrumentation-key"
+              },
+              {
+                "name": "AZURE_LOG_LEVEL",
+                "value": "info"
+              },
+              {
+                "name": "STORAGE_SECRET_KEY",
+                "secretRef": "storage-secret-key"
+              }
+            ],
+            "probes": [
+              {
+                "type": "Readiness",
+                "httpGet": {
+                  "path": "/v1/health",
+                  "port": 3000,
+                  "scheme": "HTTP"
+                },
+                "initialDelaySeconds": 10,
+                "periodSeconds": 10,
+                "timeoutSeconds": 5,
+                "failureThreshold": 3
+              },
+              {
+                "type": "Liveness",
+                "httpGet": {
+                  "path": "/v1/health",
+                  "port": 3000,
+                  "scheme": "HTTP"
+                },
+                "initialDelaySeconds": 30,
+                "periodSeconds": 30,
+                "timeoutSeconds": 10,
+                "failureThreshold": 3
+              }
+            ]
+          }
+        ],
+        "scale": {
+          "minReplicas": 2,
+          "maxReplicas": 10,
+          "rules": [
+            {
+              "name": "http-rule",
+              "http": {
+                "requests": 100,
+                "window": "1m"
+              }
+            },
+            {
+              "name": "cpu-rule", 
+              "custom": {
+                "type": "cpu",
+                "metadata": {
+                  "type": "Utilization",
+                  "value": "75"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+
+  # Staging Container App
+  staging_container_app: |
+    {
+      "name": "datahubportal-api-staging",
+      "resourceGroup": "datahubportal-staging-rg",
+      "location": "East US 2", 
+      "environment": "datahubportal-staging-env",
+      "configuration": {
+        "secrets": [
+          {
+            "name": "staging-api-key-secret",
+            "value": "staging_secure_api_key_azure_here"
+          },
+          {
+            "name": "staging-storage-secret-key",
+            "value": "staging_azure_storage_secret_key"
+          },
+          {
+            "name": "staging-app-insights-connection-string",
+            "value": "${STAGING_APPLICATIONINSIGHTS_CONNECTION_STRING}"
+          },
+          {
+            "name": "staging-app-insights-instrumentation-key",
+            "value": "${STAGING_APPINSIGHTS_INSTRUMENTATIONKEY}"
+          }
+        ],
+        "ingress": {
+          "external": true,
+          "targetPort": 3000,
+          "allowInsecure": false,
+          "customDomains": [
+            {
+              "name": "api.staging.datahubportal.com",
+              "bindingType": "SniEnabled"
+            }
+          ]
+        }
+      },
+      "template": {
+        "containers": [
+          {
+            "image": "datahubportal.azurecr.io/portal-api:v1.0.0-staging",
+            "name": "portal-api",
+            "resources": {
+              "cpu": "0.5",
+              "memory": "1.0Gi"
+            },
+            "env": [
+              {
+                "name": "NODE_ENV",
+                "value": "staging"
+              },
+              {
+                "name": "ALLOWED_ORIGINS",
+                "value": "https://staging.datahubportal.com"
+              },
+              {
+                "name": "RATE_LIMIT_MAX_REQUESTS",
+                "value": "120"
+              },
+              {
+                "name": "HSTS_INCLUDE_SUBDOMAINS", 
+                "value": "false"
+              },
+              {
+                "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                "secretRef": "staging-app-insights-connection-string"
+              },
+              {
+                "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                "secretRef": "staging-app-insights-instrumentation-key"
+              },
+              {
+                "name": "AZURE_LOG_LEVEL",
+                "value": "debug"
+              }
+            ]
+          }
+        ],
+        "scale": {
+          "minReplicas": 1,
+          "maxReplicas": 3
+        }
+      }
+    }
+
+# Azure CLI deployment commands
+cli_deployment: |
+  # Create production container app
+  az containerapp create \
+    --name datahubportal-api-prod \
+    --resource-group datahubportal-prod-rg \
+    --environment datahubportal-prod-env \
+    --image datahubportal.azurecr.io/portal-api:v1.0.0 \
+    --target-port 3000 \
+    --ingress external \
+    --cpu 1.0 \
+    --memory 2.0Gi \
+    --min-replicas 2 \
+    --max-replicas 10 \
+    --secrets storage-secret-key=prod_azure_storage_secret \
+    --env-vars NODE_ENV=production PORT=3000 ALLOWED_ORIGINS="https://datahubportal.com" \
+    --registry-server datahubportal.azurecr.io
+    
+  # Bind custom domain
+  az containerapp hostname bind \
+    --name datahubportal-api-prod \
+    --resource-group datahubportal-prod-rg \
+    --hostname api.datahubportal.com \
+    --validation-method CNAME

@@ -1,0 +1,84 @@
+# DNS Configuration for datahubportal.com in Azure DNS Zone
+# Apply these records in Azure DNS or your DNS provider
+
+dns_zone:
+  name: "datahubportal.com"
+  resource_group: "datahubportal-prod-rg"
+  
+records:
+  # Apex domain - ALIAS/A record to Front Door
+  - name: "@"
+    type: "ALIAS"  # or A record if ALIAS not supported
+    value: "datahubportal-fd-endpoint.azurefd.net"
+    ttl: 300
+    
+  # API subdomain - CNAME to Front Door
+  - name: "api"
+    type: "CNAME"
+    value: "datahubportal-fd-endpoint.azurefd.net"
+    ttl: 300
+    
+  # Docs subdomain - CNAME to Front Door  
+  - name: "docs"
+    type: "CNAME"
+    value: "datahubportal-fd-endpoint.azurefd.net"
+    ttl: 300
+    
+  # Staging API
+  - name: "api.staging"
+    type: "CNAME"
+    value: "datahubportal-fd-endpoint.azurefd.net"
+    ttl: 300
+    
+  # Staging Docs
+  - name: "docs.staging"
+    type: "CNAME"
+    value: "datahubportal-fd-endpoint.azurefd.net"
+    ttl: 300
+
+  # Domain validation records (auto-created by Azure for managed certificates)
+  - name: "_dnsauth.api"
+    type: "CNAME"
+    value: "_dnsauth.api.datahubportal.com.validate.azure.com"
+    ttl: 300
+    
+  # Additional validation records will be auto-generated
+
+# Azure CLI commands to create DNS zone and records
+cli_commands: |
+  # Create DNS zone
+  az network dns zone create \
+    --resource-group datahubportal-prod-rg \
+    --name datahubportal.com
+
+  # Create A record for apex (if ALIAS not supported)
+  az network dns record-set a add-record \
+    --resource-group datahubportal-prod-rg \
+    --zone-name datahubportal.com \
+    --record-set-name "@" \
+    --ipv4-address "$(dig +short datahubportal-fd-endpoint.azurefd.net)"
+
+  # Create CNAME records
+  az network dns record-set cname set-record \
+    --resource-group datahubportal-prod-rg \
+    --zone-name datahubportal.com \
+    --record-set-name "api" \
+    --cname "datahubportal-fd-endpoint.azurefd.net"
+
+  az network dns record-set cname set-record \
+    --resource-group datahubportal-prod-rg \
+    --zone-name datahubportal.com \
+    --record-set-name "docs" \
+    --cname "datahubportal-fd-endpoint.azurefd.net"
+
+  az network dns record-set cname set-record \
+    --resource-group datahubportal-prod-rg \
+    --zone-name datahubportal.com \
+    --record-set-name "api.staging" \
+    --cname "datahubportal-fd-endpoint.azurefd.net"
+
+  az network dns record-set cname set-record \
+    --resource-group datahubportal-prod-rg \
+    --zone-name datahubportal.com \
+    --record-set-name "docs.staging" \
+    --cname "datahubportal-fd-endpoint.azurefd.net"

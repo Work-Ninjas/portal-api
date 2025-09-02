@@ -1,0 +1,238 @@
+# Synthetic Monitoring Configuration for datahubportal.com
+# Deploy these checks to your monitoring system (Datadog, New Relic, Pingdom, etc.)
+
+synthetic_monitors:
+  
+  # Production API Monitoring
+  production_api:
+    base_url: "https://api.datahubportal.com/v1"
+    headers:
+      Authorization: "Bearer prod_synthetic_token"
+      User-Agent: "DataHub-Synthetic-Monitor/1.0"
+    
+    checks:
+      - name: "Health Check - Production"
+        url: "/health"
+        method: GET
+        interval: "1m"
+        timeout: "10s"
+        expected_status: 200
+        validations:
+          - json_path: "$.status"
+            expected_value: "healthy"
+          - json_path: "$.version" 
+            expected_value: "1.0.0"
+          - header: "X-RateLimit-Limit"
+            expected_value: "60"
+        alert_conditions:
+          - response_time: ">5s"
+          - status_code: "!= 200"
+          - availability: "<99%"
+            
+      - name: "Contacts API - Production"
+        url: "/contacts?limit=1"
+        method: GET
+        interval: "2m"
+        timeout: "15s"
+        expected_status: 200
+        validations:
+          - json_path: "$.data"
+            type: "array"
+          - json_path: "$.total"
+            type: "number"
+          - header: "X-RateLimit-Limit"
+            expected_value: "60"
+        alert_conditions:
+          - response_time: ">10s"
+          - status_code: "!= 200"
+          
+      - name: "Jobs API - Production"  
+        url: "/jobs?limit=1"
+        method: GET
+        interval: "3m"
+        timeout: "15s"
+        expected_status: 200
+        validations:
+          - json_path: "$.data[0].status"
+            expected_values: ["open", "scheduled", "in_progress", "blocked", "awaiting_review", "completed", "canceled", "archived"]
+          - json_path: "$.total"
+            type: "number"
+        alert_conditions:
+          - response_time: ">10s"
+          - status_code: "!= 200"
+          
+      - name: "Files API - Production"
+        url: "/jobs/job_synthetic_test/files?limit=1"
+        method: GET  
+        interval: "5m"
+        timeout: "20s"
+        expected_status: 200
+        validations:
+          - json_path: "$.data[0].signed_url"
+            type: "string"
+            contains: "storage.datahubportal.com"
+          - json_path: "$.data[0].expires_at" 
+            type: "string"
+            format: "iso8601"
+          - header: "Cache-Control"
+            expected_value: "private, max-age=0, no-store"
+          - header: "X-RateLimit-Limit"
+            expected_value: "120"
+        alert_conditions:
+          - response_time: ">15s"
+          - status_code: "!= 200"
+          - json_validation_failure: true
+
+  # Staging API Monitoring  
+  staging_api:
+    base_url: "https://api.staging.datahubportal.com/v1"
+    headers:
+      Authorization: "Bearer staging_synthetic_token"
+      User-Agent: "DataHub-Synthetic-Monitor/1.0"
+      
+    checks:
+      - name: "Health Check - Staging"
+        url: "/health"
+        method: GET
+        interval: "2m"
+        timeout: "10s"
+        expected_status: 200
+        validations:
+          - json_path: "$.status"
+            expected_value: "healthy"
+        alert_conditions:
+          - response_time: ">10s"
+          - status_code: "!= 200"
+          
+      - name: "Files API - Staging"
+        url: "/jobs/job_staging_test/files?limit=1"
+        method: GET
+        interval: "10m"
+        timeout: "20s"
+        expected_status: 200
+        validations:
+          - json_path: "$.data[0].signed_url"
+            contains: "storage.staging.datahubportal.com"
+          - header: "Cache-Control"
+            expected_value: "private, max-age=0, no-store"
+        alert_conditions:
+          - response_time: ">20s"
+          - status_code: "!= 200"
+
+  # CORS Validation Checks
+  cors_validation:
+    checks:
+      - name: "CORS - Valid Origin"
+        url: "https://api.datahubportal.com/v1/health"
+        method: OPTIONS
+        headers:
+          Origin: "https://datahubportal.com"
+          Access-Control-Request-Method: "GET"
+        interval: "15m"
+        expected_status: 200
+        validations:
+          - header: "Access-Control-Allow-Origin"
+            expected_value: "https://datahubportal.com"
+          - header: "Access-Control-Allow-Methods"
+            contains: "GET"
+            
+      - name: "CORS - Invalid Origin Block"
+        url: "https://api.datahubportal.com/v1/health" 
+        method: OPTIONS
+        headers:
+          Origin: "https://malicious.example.com"
+          Access-Control-Request-Method: "GET"
+        interval: "30m"
+        expected_status: 403
+        alert_conditions:
+          - status_code: "== 200"  # Alert if malicious origin is allowed
+
+# Grafana Dashboard Configuration
+grafana_dashboards:
+  
+  datahub_api_overview:
+    title: "DataHub Portal API - Overview"
+    panels:
+      - title: "Request Rate by Hostname"
+        query: 'rate(http_requests_total{hostname=~"api\\.datahubportal\\.com|api\\.staging\\.datahubportal\\.com"}[5m])'
+        
+      - title: "Response Time p95 by Endpoint"
+        query: 'histogram_quantile(0.95, rate(http_request_duration_ms_bucket{hostname=~"api\\.datahubportal\\.com"}[5m]))'
+        
+      - title: "Error Rate by Hostname"
+        query: 'rate(http_requests_errors_total{hostname=~"api\\.datahubportal\\.com"}[5m]) / rate(http_requests_total{hostname=~"api\\.datahubportal\\.com"}[5m])'
+        
+      - title: "Rate Limiting Activity"
+        query: 'rate(http_requests_total{status_code="429",hostname=~"api\\.datahubportal\\.com"}[5m])'
+        
+      - title: "Files API Signed URL Generation"
+        query: 'rate(signed_urls_generated_total{hostname=~"api\\.datahubportal\\.com"}[5m])'
+
+  datahub_synthetic_status:
+    title: "DataHub Portal API - Synthetic Monitoring"
+    panels:
+      - title: "Synthetic Check Success Rate"
+        query: 'avg(synthetic_check_success{service="datahub-api"}) by (check_name)'
+        
+      - title: "Synthetic Check Response Times"
+        query: 'avg(synthetic_check_duration_ms{service="datahub-api"}) by (check_name)'
+
+# Alert Rules
+alert_rules:
+  
+  - alert: DataHubAPIDown
+    expr: 'up{job="datahub-api-prod"} == 0'
+    for: "1m"
+    labels:
+      severity: "critical"
+      service: "datahub-api"
+    annotations:
+      summary: "DataHub Portal API is down"
+      description: "api.datahubportal.com has been down for more than 1 minute"
+      
+  - alert: DataHubHighLatency
+    expr: 'histogram_quantile(0.95, rate(http_request_duration_ms_bucket{hostname="api.datahubportal.com"}[5m])) > 1000'
+    for: "5m"
+    labels:
+      severity: "warning"
+      service: "datahub-api"
+    annotations:
+      summary: "DataHub Portal API high latency"
+      description: "p95 response time is {{ $value }}ms for api.datahubportal.com"
+      
+  - alert: DataHubHighErrorRate
+    expr: 'rate(http_requests_errors_total{hostname="api.datahubportal.com"}[5m]) / rate(http_requests_total{hostname="api.datahubportal.com"}[5m]) > 0.05'
+    for: "2m"
+    labels:
+      severity: "critical" 
+      service: "datahub-api"
+    annotations:
+      summary: "DataHub Portal API high error rate"
+      description: "Error rate is {{ $value | humanizePercentage }} for api.datahubportal.com"
+      
+  - alert: DataHubCORSViolation
+    expr: 'increase(cors_violations_total{hostname="api.datahubportal.com"}[5m]) > 10'
+    for: "1m"
+    labels:
+      severity: "warning"
+      service: "datahub-api"  
+    annotations:
+      summary: "DataHub Portal API CORS violations detected"
+      description: "{{ $value }} CORS violations detected in the last 5 minutes"
+
+# Notification Channels
+notification_channels:
+  - name: "datahub-api-alerts"
+    type: "slack"
+    webhook_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+    channel: "#datahub-alerts"
+    
+  - name: "datahub-pagerduty"
+    type: "pagerduty"  
+    integration_key: "YOUR_PAGERDUTY_INTEGRATION_KEY"
+    
+# Dashboard URLs (to be updated after deployment)
+dashboard_urls:
+  production: "https://grafana.datahubportal.com/d/datahub-api/overview"
+  staging: "https://grafana.datahubportal.com/d/datahub-api-staging/overview"
+  synthetic: "https://grafana.datahubportal.com/d/datahub-synthetic/synthetic-monitoring"

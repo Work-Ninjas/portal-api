@@ -1,0 +1,68 @@
+# TLS Certificate Requests for datahubportal.com domains
+# Use with AWS Certificate Manager, Let's Encrypt, or your certificate provider
+
+# Certificate Request 1: Production Wildcard
+production_certificate:
+  domains:
+    - "datahubportal.com"
+    - "*.datahubportal.com"
+  validation_method: "DNS"
+  key_algorithm: "RSA-2048"
+  certificate_authority: "AWS Certificate Manager"
+  
+  # DNS validation records (example)
+  validation_records:
+    - name: "_acme-challenge.datahubportal.com"
+      type: "CNAME"
+      value: "_acme-challenge.datahubportal.com.acm-validations.aws."
+    - name: "_acme-challenge.*.datahubportal.com" 
+      type: "CNAME"
+      value: "_acme-challenge.datahubportal.com.acm-validations.aws."
+
+# Certificate Request 2: Staging Subdomain
+staging_certificate:
+  domains:
+    - "*.staging.datahubportal.com"
+  validation_method: "DNS"
+  key_algorithm: "RSA-2048"
+  certificate_authority: "AWS Certificate Manager"
+  
+  validation_records:
+    - name: "_acme-challenge.staging.datahubportal.com"
+      type: "CNAME" 
+      value: "_acme-challenge.staging.datahubportal.com.acm-validations.aws."
+
+# Load Balancer SSL Configuration
+load_balancer_config:
+  # Production ALB
+  production_alb:
+    listeners:
+      - port: 443
+        protocol: HTTPS
+        certificate_arn: "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+        ssl_policy: "ELBSecurityPolicy-TLS-1-2-2019-07"
+        default_action:
+          type: "forward"
+          target_group_arn: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/portal-api-prod/73e2d6bc24d8a067"
+          
+  # Staging ALB  
+  staging_alb:
+    listeners:
+      - port: 443
+        protocol: HTTPS
+        certificate_arn: "arn:aws:acm:us-east-1:123456789012:certificate/87654321-4321-4321-4321-210987654321"
+        ssl_policy: "ELBSecurityPolicy-TLS-1-2-2019-07"
+        default_action:
+          type: "forward"
+          target_group_arn: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/portal-api-staging/47c8b5a3d2f1e068"
+
+# Certificate Validation Commands
+validation_commands: |
+  # Verify certificates are active
+  echo | openssl s_client -servername api.datahubportal.com -connect api.datahubportal.com:443 2>/dev/null | openssl x509 -noout -subject -dates
+  
+  echo | openssl s_client -servername docs.datahubportal.com -connect docs.datahubportal.com:443 2>/dev/null | openssl x509 -noout -subject -dates
+  
+  echo | openssl s_client -servername api.staging.datahubportal.com -connect api.staging.datahubportal.com:443 2>/dev/null | openssl x509 -noout -subject -dates
+  
+  echo | openssl s_client -servername docs.staging.datahubportal.com -connect docs.staging.datahubportal.com:443 2>/dev/null | openssl x509 -noout -subject -dates

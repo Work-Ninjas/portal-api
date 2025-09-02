@@ -1,0 +1,42 @@
+# DNS Configuration for datahubportal.com
+# Update these records in your DNS provider (Cloudflare, Route53, etc.)
+
+# Production API
+api.datahubportal.com:
+  type: CNAME
+  value: portal-api-prod-alb-123456789.us-east-1.elb.amazonaws.com
+  ttl: 300
+  proxied: false  # If using Cloudflare
+
+# Production Documentation
+docs.datahubportal.com:
+  type: CNAME  
+  value: stoplight-prod.example.com
+  ttl: 300
+  proxied: false
+
+# Staging API
+api.staging.datahubportal.com:
+  type: CNAME
+  value: portal-api-staging-alb-987654321.us-east-1.elb.amazonaws.com
+  ttl: 300
+  proxied: false
+
+# Staging Documentation
+docs.staging.datahubportal.com:
+  type: CNAME
+  value: stoplight-staging.example.com
+  ttl: 300
+  proxied: false
+
+# Root domain (optional - for future use)
+datahubportal.com:
+  type: A
+  value: 1.2.3.4  # Replace with actual IP
+  ttl: 300
+
+# WWW redirect (optional)
+www.datahubportal.com:
+  type: CNAME
+  value: datahubportal.com
+  ttl: 300

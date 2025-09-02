@@ -1,0 +1,191 @@
+{
+  "rulesEngine": {
+    "name": "cors-security-rules",
+    "rules": [
+      {
+        "name": "CORS-Headers-Production",
+        "priority": 100,
+        "matchConditions": [
+          {
+            "rulesEngineMatchVariable": "RequestHeader",
+            "rulesEngineMatchValue": ["https://datahubportal.com", "https://staging.datahubportal.com"],
+            "rulesEngineOperator": "Equal",
+            "selector": "Origin"
+          }
+        ],
+        "action": {
+          "responseHeaderActions": [
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Origin",
+              "value": "{http_req_origin}"
+            },
+            {
+              "headerActionType": "Overwrite", 
+              "headerName": "Access-Control-Allow-Methods",
+              "value": "GET, HEAD, OPTIONS"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Headers", 
+              "value": "Authorization, Content-Type, X-Request-Id"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Expose-Headers",
+              "value": "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Credentials",
+              "value": "false"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Max-Age", 
+              "value": "600"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Security-Headers",
+        "priority": 200,
+        "matchConditions": [
+          {
+            "rulesEngineMatchVariable": "RequestPath",
+            "rulesEngineMatchValue": ["/v1/*"],
+            "rulesEngineOperator": "BeginsWith"
+          }
+        ],
+        "action": {
+          "responseHeaderActions": [
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Strict-Transport-Security", 
+              "value": "max-age=31536000; includeSubDomains; preload"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "X-Frame-Options",
+              "value": "DENY"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Referrer-Policy",
+              "value": "no-referrer"
+            },
+            {
+              "headerActionType": "Delete",
+              "headerName": "Server"
+            },
+            {
+              "headerActionType": "Delete", 
+              "headerName": "X-Powered-By"
+            }
+          ]
+        }
+      },
+      {
+        "name": "Files-Cache-Control",
+        "priority": 300,
+        "matchConditions": [
+          {
+            "rulesEngineMatchVariable": "RequestPath",
+            "rulesEngineMatchValue": ["/v1/jobs/*/files"],
+            "rulesEngineOperator": "Contains"
+          }
+        ],
+        "action": {
+          "responseHeaderActions": [
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Cache-Control",
+              "value": "private, max-age=0, no-store"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Pragma", 
+              "value": "no-cache"
+            }
+          ]
+        }
+      },
+      {
+        "name": "CORS-Preflight-OPTIONS",
+        "priority": 50,
+        "matchConditions": [
+          {
+            "rulesEngineMatchVariable": "RequestMethod",
+            "rulesEngineMatchValue": ["OPTIONS"],
+            "rulesEngineOperator": "Equal"
+          },
+          {
+            "rulesEngineMatchVariable": "RequestHeader",
+            "rulesEngineMatchValue": ["https://datahubportal.com", "https://staging.datahubportal.com"],
+            "rulesEngineOperator": "Equal",
+            "selector": "Origin"
+          }
+        ],
+        "action": {
+          "responseHeaderActions": [
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Origin",
+              "value": "{http_req_origin}"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Methods", 
+              "value": "GET, HEAD, OPTIONS"
+            },
+            {
+              "headerActionType": "Overwrite",
+              "headerName": "Access-Control-Allow-Headers",
+              "value": "Authorization, Content-Type, X-Request-Id"
+            },
+            {
+              "headerActionType": "Overwrite", 
+              "headerName": "Access-Control-Max-Age",
+              "value": "600"
+            }
+          ],
+          "routeConfigurationOverride": {
+            "responseStatusCode": 200,
+            "responseStatusReason": "OK"
+          }
+        }
+      },
+      {
+        "name": "Block-Invalid-Origins",
+        "priority": 25,
+        "matchConditions": [
+          {
+            "rulesEngineMatchVariable": "RequestHeader",
+            "rulesEngineMatchValue": ["https://datahubportal.com", "https://staging.datahubportal.com"],
+            "rulesEngineOperator": "Equal",
+            "selector": "Origin",
+            "negateCondition": true
+          },
+          {
+            "rulesEngineMatchVariable": "RequestHeader",
+            "rulesEngineMatchValue": ["Origin"],
+            "rulesEngineOperator": "Contains",
+            "selector": "*"
+          }
+        ],
+        "action": {
+          "routeConfigurationOverride": {
+            "responseStatusCode": 403,
+            "responseStatusReason": "CORS policy violation"
+          }
+        }
+      }
+    ]
+  }
+}

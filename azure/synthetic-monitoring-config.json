@@ -1,0 +1,277 @@
+{
+  "webTests": [
+    {
+      "name": "portal-api-health-check",
+      "description": "Health check endpoint monitoring",
+      "enabled": true,
+      "frequency": 300,
+      "timeout": 30,
+      "kind": "ping",
+      "locations": [
+        "us-east-1",
+        "us-west-2",
+        "eu-west-1",
+        "ap-southeast-1"
+      ],
+      "configuration": {
+        "webTest": {
+          "url": "https://api.datahubportal.com/v1/health",
+          "httpVerb": "GET",
+          "headers": [],
+          "validationRules": {
+            "expectedHttpStatusCode": 200,
+            "contentValidation": {
+              "contentMatch": "ok",
+              "ignoreCase": true,
+              "passIfTextFound": true
+            }
+          }
+        }
+      },
+      "alertRule": {
+        "name": "portal-api-health-alert",
+        "description": "Alert when health check fails",
+        "enabled": true,
+        "severity": 1,
+        "windowSize": "PT5M",
+        "evaluationFrequency": "PT1M",
+        "criteria": {
+          "webTestId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/webtests/portal-api-health-check",
+          "componentId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/components/portal-api-insights",
+          "failedLocationCount": 2
+        }
+      }
+    },
+    {
+      "name": "portal-api-contacts-endpoint",
+      "description": "Contacts endpoint monitoring with authentication",
+      "enabled": true,
+      "frequency": 300,
+      "timeout": 30,
+      "kind": "multistep",
+      "locations": [
+        "us-east-1",
+        "us-west-2"
+      ],
+      "configuration": {
+        "webTest": {
+          "url": "https://api.datahubportal.com/v1/contacts",
+          "httpVerb": "GET",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ${SYNTHETIC_TEST_API_KEY}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Azure-Synthetic-Monitor/1.0"
+            }
+          ],
+          "validationRules": {
+            "expectedHttpStatusCode": 200,
+            "contentValidation": {
+              "contentMatch": "\"data\":",
+              "ignoreCase": false,
+              "passIfTextFound": true
+            }
+          }
+        }
+      },
+      "alertRule": {
+        "name": "portal-api-contacts-alert",
+        "description": "Alert when contacts endpoint fails",
+        "enabled": true,
+        "severity": 2,
+        "windowSize": "PT10M",
+        "evaluationFrequency": "PT5M",
+        "criteria": {
+          "webTestId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/webtests/portal-api-contacts-endpoint",
+          "componentId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/components/portal-api-insights",
+          "failedLocationCount": 1
+        }
+      }
+    },
+    {
+      "name": "portal-api-jobs-endpoint",
+      "description": "Jobs endpoint monitoring with authentication",
+      "enabled": true,
+      "frequency": 300,
+      "timeout": 30,
+      "kind": "multistep",
+      "locations": [
+        "us-east-1",
+        "us-west-2"
+      ],
+      "configuration": {
+        "webTest": {
+          "url": "https://api.datahubportal.com/v1/jobs",
+          "httpVerb": "GET",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ${SYNTHETIC_TEST_API_KEY}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Azure-Synthetic-Monitor/1.0"
+            }
+          ],
+          "validationRules": {
+            "expectedHttpStatusCode": 200,
+            "contentValidation": {
+              "contentMatch": "\"data\":",
+              "ignoreCase": false,
+              "passIfTextFound": true
+            }
+          }
+        }
+      },
+      "alertRule": {
+        "name": "portal-api-jobs-alert",
+        "description": "Alert when jobs endpoint fails",
+        "enabled": true,
+        "severity": 2,
+        "windowSize": "PT10M",
+        "evaluationFrequency": "PT5M",
+        "criteria": {
+          "webTestId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/webtests/portal-api-jobs-endpoint",
+          "componentId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/components/portal-api-insights",
+          "failedLocationCount": 1
+        }
+      }
+    },
+    {
+      "name": "portal-api-files-endpoint",
+      "description": "Files endpoint monitoring with job ID",
+      "enabled": true,
+      "frequency": 600,
+      "timeout": 45,
+      "kind": "multistep",
+      "locations": [
+        "us-east-1"
+      ],
+      "configuration": {
+        "webTest": {
+          "url": "https://api.datahubportal.com/v1/jobs/test-job-id/files",
+          "httpVerb": "GET",
+          "headers": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ${SYNTHETIC_TEST_API_KEY}"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Azure-Synthetic-Monitor/1.0"
+            }
+          ],
+          "validationRules": {
+            "expectedHttpStatusCode": 200,
+            "contentValidation": {
+              "contentMatch": "\"signed_urls\":",
+              "ignoreCase": false,
+              "passIfTextFound": true
+            },
+            "responseHeaders": [
+              {
+                "name": "Cache-Control",
+                "expectedValue": "private, max-age=0, no-store",
+                "matchType": "exact"
+              },
+              {
+                "name": "X-RateLimit-Limit",
+                "matchType": "exists"
+              },
+              {
+                "name": "X-RateLimit-Remaining",
+                "matchType": "exists"
+              }
+            ]
+          }
+        }
+      },
+      "alertRule": {
+        "name": "portal-api-files-alert",
+        "description": "Alert when files endpoint fails",
+        "enabled": true,
+        "severity": 2,
+        "windowSize": "PT15M",
+        "evaluationFrequency": "PT10M",
+        "criteria": {
+          "webTestId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/webtests/portal-api-files-endpoint",
+          "componentId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.Insights/components/portal-api-insights",
+          "failedLocationCount": 1
+        }
+      }
+    }
+  ],
+  "availability": {
+    "name": "portal-api-availability",
+    "description": "Overall API availability monitoring",
+    "enabled": true,
+    "frequency": 60,
+    "locations": [
+      "us-east-1",
+      "us-west-2",
+      "eu-west-1"
+    ],
+    "configuration": {
+      "endpoints": [
+        {
+          "url": "https://api.datahubportal.com/v1/health",
+          "method": "GET",
+          "timeout": 10,
+          "expectedStatusCode": 200
+        },
+        {
+          "url": "https://docs.datahubportal.com",
+          "method": "GET",
+          "timeout": 15,
+          "expectedStatusCode": 200
+        }
+      ]
+    },
+    "sla": {
+      "target": 99.9,
+      "windowSize": "P7D"
+    },
+    "alertRules": [
+      {
+        "name": "portal-api-availability-sla",
+        "description": "Alert when availability drops below SLA",
+        "enabled": true,
+        "severity": 1,
+        "threshold": 99.5,
+        "windowSize": "PT1H",
+        "evaluationFrequency": "PT5M"
+      }
+    ]
+  },
+  "customMetrics": [
+    {
+      "name": "api_request_duration_seconds",
+      "description": "API request duration in seconds",
+      "type": "histogram",
+      "buckets": [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+      "labels": ["method", "endpoint", "status_code"]
+    },
+    {
+      "name": "api_rate_limit_hits_total",
+      "description": "Total number of rate limit hits (429 responses)",
+      "type": "counter",
+      "labels": ["client_id", "endpoint"]
+    },
+    {
+      "name": "api_active_connections",
+      "description": "Number of active API connections",
+      "type": "gauge",
+      "labels": ["instance"]
+    },
+    {
+      "name": "api_file_download_duration_seconds",
+      "description": "File download request duration in seconds",
+      "type": "histogram",
+      "buckets": [0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+      "labels": ["job_id", "file_size_mb"]
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "applicationInsights": {
+    "name": "portal-api-insights",
+    "location": "eastus",
+    "kind": "web",
+    "applicationType": "web",
+    "workspaceResourceId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/Microsoft.OperationalInsights/workspaces/portal-api-logs",
+    "connectionString": "${APPLICATIONINSIGHTS_CONNECTION_STRING}",
+    "instrumentationKey": "${APPINSIGHTS_INSTRUMENTATIONKEY}"
+  },
+  "logAnalyticsWorkspace": {
+    "name": "portal-api-logs",
+    "location": "eastus",
+    "sku": {
+      "name": "PerGB2018"
+    },
+    "retentionInDays": 30,
+    "publicNetworkAccessForIngestion": "Enabled",
+    "publicNetworkAccessForQuery": "Enabled"
+  },
+  "alerts": [
+    {
+      "name": "portal-api-high-error-rate",
+      "description": "Alert when API error rate exceeds 5%",
+      "enabled": true,
+      "criteria": {
+        "allOf": [
+          {
+            "threshold": 5,
+            "name": "ErrorRate",
+            "metricNamespace": "Microsoft.Insights/components",
+            "metricName": "requests/failed",
+            "operator": "GreaterThan",
+            "timeAggregation": "Average",
+            "criterionType": "StaticThresholdCriterion"
+          }
+        ]
+      },
+      "windowSize": "PT5M",
+      "evaluationFrequency": "PT1M",
+      "severity": 2,
+      "actions": [
+        {
+          "actionGroupId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/microsoft.insights/actiongroups/portal-api-alerts"
+        }
+      ]
+    },
+    {
+      "name": "portal-api-high-response-time",
+      "description": "Alert when API p95 response time exceeds 2000ms",
+      "enabled": true,
+      "criteria": {
+        "allOf": [
+          {
+            "threshold": 2000,
+            "name": "ResponseTime",
+            "metricNamespace": "Microsoft.Insights/components",
+            "metricName": "requests/duration",
+            "operator": "GreaterThan",
+            "timeAggregation": "Average",
+            "criterionType": "StaticThresholdCriterion"
+          }
+        ]
+      },
+      "windowSize": "PT10M",
+      "evaluationFrequency": "PT5M",
+      "severity": 3,
+      "actions": [
+        {
+          "actionGroupId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/microsoft.insights/actiongroups/portal-api-alerts"
+        }
+      ]
+    },
+    {
+      "name": "portal-api-rate-limit-exceeded",
+      "description": "Alert when rate limiting (429 responses) exceeds threshold",
+      "enabled": true,
+      "criteria": {
+        "allOf": [
+          {
+            "threshold": 100,
+            "name": "RateLimitHits",
+            "metricNamespace": "Microsoft.Insights/components",
+            "metricName": "requests/count",
+            "operator": "GreaterThan",
+            "timeAggregation": "Count",
+            "criterionType": "StaticThresholdCriterion",
+            "dimensions": [
+              {
+                "name": "request/resultCode",
+                "operator": "Include",
+                "values": ["429"]
+              }
+            ]
+          }
+        ]
+      },
+      "windowSize": "PT5M",
+      "evaluationFrequency": "PT1M",
+      "severity": 1,
+      "actions": [
+        {
+          "actionGroupId": "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/portal-api-rg/providers/microsoft.insights/actiongroups/portal-api-alerts"
+        }
+      ]
+    }
+  ],
+  "actionGroup": {
+    "name": "portal-api-alerts",
+    "shortName": "portalapi",
+    "enabled": true,
+    "emailReceivers": [
+      {
+        "name": "ops-team",
+        "emailAddress": "ops@datahubportal.com",
+        "useCommonAlertSchema": true
+      }
+    ],
+    "webhookReceivers": [
+      {
+        "name": "slack-webhook",
+        "serviceUri": "${SLACK_WEBHOOK_URL}",
+        "useCommonAlertSchema": true
+      }
+    ]
+  },
+  "dashboard": {
+    "name": "portal-api-dashboard",
+    "location": "eastus",
+    "properties": {
+      "lenses": [
+        {
+          "order": 0,
+          "parts": [
+            {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "rowSpan": 2,
+                "colSpan": 6
+              },
+              "metadata": {
+                "inputs": [
+                  {
+                    "name": "ComponentId",
+                    "value": {
+                      "Name": "portal-api-insights",
+                      "ResourceGroup": "portal-api-rg"
+                    }
+                  },
+                  {
+                    "name": "Query",
+                    "value": "requests\n| where timestamp >= ago(1h)\n| summarize \n    Total = count(),\n    Success = countif(success == true),\n    Failed = countif(success == false)\n| extend SuccessRate = (Success * 100.0) / Total\n| project SuccessRate, Total, Success, Failed"
+                  }
+                ],
+                "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart"
+              }
+            },
+            {
+              "position": {
+                "x": 6,
+                "y": 0,
+                "rowSpan": 2,
+                "colSpan": 6
+              },
+              "metadata": {
+                "inputs": [
+                  {
+                    "name": "ComponentId",
+                    "value": {
+                      "Name": "portal-api-insights",
+                      "ResourceGroup": "portal-api-rg"
+                    }
+                  },
+                  {
+                    "name": "Query",
+                    "value": "requests\n| where timestamp >= ago(1h)\n| summarize \n    p50 = percentile(duration, 50),\n    p95 = percentile(duration, 95),\n    p99 = percentile(duration, 99)\nby bin(timestamp, 5m)\n| order by timestamp asc"
+                  }
+                ],
+                "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart"
+              }
+            },
+            {
+              "position": {
+                "x": 0,
+                "y": 2,
+                "rowSpan": 2,
+                "colSpan": 12
+              },
+              "metadata": {
+                "inputs": [
+                  {
+                    "name": "ComponentId",
+                    "value": {
+                      "Name": "portal-api-insights",
+                      "ResourceGroup": "portal-api-rg"
+                    }
+                  },
+                  {
+                    "name": "Query",
+                    "value": "requests\n| where timestamp >= ago(1h)\n| summarize count() by resultCode, bin(timestamp, 5m)\n| order by timestamp asc"
+                  }
+                ],
+                "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart"
+              }
+            },
+            {
+              "position": {
+                "x": 0,
+                "y": 4,
+                "rowSpan": 2,
+                "colSpan": 6
+              },
+              "metadata": {
+                "inputs": [
+                  {
+                    "name": "ComponentId",
+                    "value": {
+                      "Name": "portal-api-insights",
+                      "ResourceGroup": "portal-api-rg"
+                    }
+                  },
+                  {
+                    "name": "Query",
+                    "value": "requests\n| where timestamp >= ago(1h) and resultCode == '429'\n| summarize RateLimitHits = count() by bin(timestamp, 5m)\n| order by timestamp asc"
+                  }
+                ],
+                "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart"
+              }
+            },
+            {
+              "position": {
+                "x": 6,
+                "y": 4,
+                "rowSpan": 2,
+                "colSpan": 6
+              },
+              "metadata": {
+                "inputs": [
+                  {
+                    "name": "ComponentId",
+                    "value": {
+                      "Name": "portal-api-insights",
+                      "ResourceGroup": "portal-api-rg"
+                    }
+                  },
+                  {
+                    "name": "Query",
+                    "value": "requests\n| where timestamp >= ago(1h)\n| where url contains '/v1/jobs/' and url contains '/files'\n| summarize FilesRequests = count() by bin(timestamp, 5m)\n| order by timestamp asc"
+                  }
+                ],
+                "type": "Extension/Microsoft_OperationsManagementSuite_Workspace/PartType/LogsDashboardPart"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

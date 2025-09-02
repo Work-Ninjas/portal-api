@@ -1,0 +1,180 @@
+{
+  "frontDoor": {
+    "name": "datahubportal-frontdoor",
+    "resourceGroup": "datahubportal-prod-rg",
+    "location": "Global",
+    "profile": {
+      "sku": "Standard_AzureFrontDoor"
+    },
+    "endpoints": [
+      {
+        "name": "datahubportal-endpoint",
+        "hostname": "datahubportal-fd-endpoint.azurefd.net"
+      }
+    ],
+    "customDomains": [
+      {
+        "name": "api-datahubportal-com",
+        "hostName": "api.datahubportal.com",
+        "tlsSettings": {
+          "certificateType": "ManagedCertificate",
+          "minimumTlsVersion": "TLS12"
+        }
+      },
+      {
+        "name": "docs-datahubportal-com", 
+        "hostName": "docs.datahubportal.com",
+        "tlsSettings": {
+          "certificateType": "ManagedCertificate",
+          "minimumTlsVersion": "TLS12"
+        }
+      },
+      {
+        "name": "apex-datahubportal-com",
+        "hostName": "datahubportal.com",
+        "tlsSettings": {
+          "certificateType": "ManagedCertificate", 
+          "minimumTlsVersion": "TLS12"
+        }
+      },
+      {
+        "name": "api-staging-datahubportal-com",
+        "hostName": "api.staging.datahubportal.com",
+        "tlsSettings": {
+          "certificateType": "ManagedCertificate",
+          "minimumTlsVersion": "TLS12"
+        }
+      },
+      {
+        "name": "docs-staging-datahubportal-com",
+        "hostName": "docs.staging.datahubportal.com", 
+        "tlsSettings": {
+          "certificateType": "ManagedCertificate",
+          "minimumTlsVersion": "TLS12"
+        }
+      }
+    ],
+    "originGroups": [
+      {
+        "name": "api-origin-group",
+        "loadBalancingSettings": {
+          "sampleSize": 4,
+          "successfulSamplesRequired": 3,
+          "additionalLatencyInMilliseconds": 50
+        },
+        "healthProbeSettings": {
+          "probePath": "/v1/health",
+          "probeRequestType": "GET",
+          "probeProtocol": "Https",
+          "probeIntervalInSeconds": 30
+        },
+        "origins": [
+          {
+            "name": "api-prod-origin",
+            "hostName": "datahubportal-api-prod.azurecontainerapps.io",
+            "httpPort": 80,
+            "httpsPort": 443,
+            "originHostHeader": "datahubportal-api-prod.azurecontainerapps.io",
+            "priority": 1,
+            "weight": 1000,
+            "enabledState": "Enabled"
+          }
+        ]
+      },
+      {
+        "name": "docs-origin-group",
+        "loadBalancingSettings": {
+          "sampleSize": 2,
+          "successfulSamplesRequired": 1,
+          "additionalLatencyInMilliseconds": 50
+        },
+        "origins": [
+          {
+            "name": "docs-prod-origin",
+            "hostName": "datahubportal-docs.azurestaticapps.net",
+            "httpPort": 80,
+            "httpsPort": 443,
+            "originHostHeader": "datahubportal-docs.azurestaticapps.net",
+            "priority": 1,
+            "weight": 1000,
+            "enabledState": "Enabled"
+          }
+        ]
+      },
+      {
+        "name": "api-staging-origin-group",
+        "origins": [
+          {
+            "name": "api-staging-origin", 
+            "hostName": "datahubportal-api-staging.azurecontainerapps.io",
+            "httpPort": 80,
+            "httpsPort": 443,
+            "originHostHeader": "datahubportal-api-staging.azurecontainerapps.io",
+            "priority": 1,
+            "weight": 1000,
+            "enabledState": "Enabled"
+          }
+        ]
+      },
+      {
+        "name": "docs-staging-origin-group",
+        "origins": [
+          {
+            "name": "docs-staging-origin",
+            "hostName": "datahubportal-docs-staging.azurestaticapps.net",
+            "httpPort": 80,
+            "httpsPort": 443,
+            "originHostHeader": "datahubportal-docs-staging.azurestaticapps.net", 
+            "priority": 1,
+            "weight": 1000,
+            "enabledState": "Enabled"
+          }
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "name": "api-prod-route",
+        "customDomains": ["api.datahubportal.com"],
+        "originGroup": "api-origin-group",
+        "patternsToMatch": ["/v1/*"],
+        "supportedProtocols": ["Https"],
+        "httpsRedirect": "Enabled",
+        "linkToDefaultDomain": "Enabled"
+      },
+      {
+        "name": "docs-prod-route",
+        "customDomains": ["docs.datahubportal.com"],
+        "originGroup": "docs-origin-group", 
+        "patternsToMatch": ["/*"],
+        "supportedProtocols": ["Https"],
+        "httpsRedirect": "Enabled",
+        "linkToDefaultDomain": "Enabled"
+      },
+      {
+        "name": "apex-redirect-route",
+        "customDomains": ["datahubportal.com"],
+        "patternsToMatch": ["/*"],
+        "supportedProtocols": ["Https"],
+        "httpsRedirect": "Enabled",
+        "rulesEngine": "redirect-to-docs"
+      },
+      {
+        "name": "api-staging-route", 
+        "customDomains": ["api.staging.datahubportal.com"],
+        "originGroup": "api-staging-origin-group",
+        "patternsToMatch": ["/v1/*"],
+        "supportedProtocols": ["Https"],
+        "httpsRedirect": "Enabled"
+      },
+      {
+        "name": "docs-staging-route",
+        "customDomains": ["docs.staging.datahubportal.com"],
+        "originGroup": "docs-staging-origin-group",
+        "patternsToMatch": ["/*"],
+        "supportedProtocols": ["Https"],
+        "httpsRedirect": "Enabled"
+      }
+    ]
+  }
+}
