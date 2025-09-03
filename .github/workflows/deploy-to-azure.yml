@@ -51,24 +51,70 @@ jobs:
         imageToDeploy: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         environmentVariables: |
           NODE_ENV=production
+          ENV=production
+          AUTH_MODE=strict
+          MOCK_MODE=off
+          ALLOW_ANON_DOCS=false
+          TOKEN_ENV_PREFIX=dhp_live_
           PORT=3000
           ALLOWED_ORIGINS=https://datahubportal.com,https://staging.datahubportal.com
           CORS_MAX_AGE=600
+          DB_SCHEMA=public
+          RPC_LIST_CONTACTS=api_list_contacts
+          RPC_GET_CONTACT=api_get_contact
+          RPC_LIST_JOBS=api_list_jobs
+          RPC_LIST_JOB_FILES=api_list_job_files
 
-    - name: Verify deployment
+    - name: P0 Security Validation
       run: |
-        echo "🔍 Verificando deployment..."
+        echo "🔍 P0 Security Tests - Validating strict auth deployment..."
         sleep 30
         
-        # Check health endpoint
-        HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.datahubportal.com/v1/health)
-        
-        if [ "$HEALTH_STATUS" = "200" ]; then
-          echo "✅ Deployment exitoso! Health check: HTTP $HEALTH_STATUS"
+        # Test 1: No token should return 401
+        echo "Test 1: No Authorization header"
+        AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://api.datahubportal.com/v1/contacts?limit=1")
+        if [ "$AUTH_STATUS" = "401" ]; then
+          echo "✅ Test 1 PASSED: Returns 401 without token"
         else
-          echo "❌ Error en deployment. Health check: HTTP $HEALTH_STATUS"
+          echo "❌ Test 1 FAILED: Expected 401, got $AUTH_STATUS"
           exit 1
         fi
+        
+        # Test 2: Health endpoint should show strict mode
+        echo "Test 2: Health endpoint authMode and mockMode"
+        HEALTH_RESPONSE=$(curl -s "https://api.datahubportal.com/v1/health")
+        HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unknown"')
+        AUTH_MODE=$(echo "$HEALTH_RESPONSE" | jq -r '.authMode // "unknown"')
+        MOCK_MODE=$(echo "$HEALTH_RESPONSE" | jq -r '.mockMode // "unknown"')
+        
+        echo "Health Response: $HEALTH_RESPONSE"
+        
+        if [ "$AUTH_MODE" = "strict" ]; then
+          echo "✅ Test 2 PASSED: authMode is strict"
+        else
+          echo "❌ Test 2 FAILED: authMode is '$AUTH_MODE', expected 'strict'"
+          exit 1
+        fi
+        
+        if [ "$MOCK_MODE" = "false" ]; then
+          echo "✅ Test 3 PASSED: mockMode is false"
+        else
+          echo "❌ Test 3 FAILED: mockMode is '$MOCK_MODE', expected 'false'"
+          exit 1
+        fi
+        
+        if [ "$HEALTH_STATUS" = "healthy" ] || [ "$HEALTH_STATUS" = "degraded" ]; then
+          echo "✅ Test 4 PASSED: Health status is $HEALTH_STATUS"
+        else
+          echo "❌ Test 4 FAILED: Health status is $HEALTH_STATUS"
+          exit 1
+        fi
+        
+        echo "🎉 P0 Security validation completed successfully!"
+        echo "📋 Production is now configured with:"
+        echo "   - AUTH_MODE=strict ✅"
+        echo "   - MOCK_MODE=off ✅"
+        echo "   - 401 responses for missing tokens ✅"
 
     - name: Send notification
       if: always()
