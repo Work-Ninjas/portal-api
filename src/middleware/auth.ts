@@ -14,10 +14,34 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
 
   const token = authHeader.substring(7);
   
-  // For stub/demo purposes, accept any token and extract client_id
+  // P0 Fix: Implement strict authentication mode
+  const authMode = process.env.AUTH_MODE || 'permissive';
+  const tokenEnvPrefix = process.env.TOKEN_ENV_PREFIX || '';
+  
+  if (authMode === 'strict') {
+    // Strict mode: validate token environment prefix
+    if (tokenEnvPrefix && !token.startsWith(tokenEnvPrefix)) {
+      throw new ApiError(
+        401,
+        ErrorCodes.WRONG_ENVIRONMENT_TOKEN,
+        `Token must start with ${tokenEnvPrefix} for this environment`
+      );
+    }
+    
+    // Additional strict validation: minimum token length
+    if (token.length < 16) {
+      throw new ApiError(
+        401,
+        ErrorCodes.INVALID_TOKEN_FORMAT,
+        'Invalid token format'
+      );
+    }
+  }
+  
+  // Extract client_id from validated token
   // In production, validate token against API key store and extract p_client_id
   // p_client_id is the tenant identifier, not derived from request
-  req.clientId = `client_${token.substring(0, 8)}`;
+  req.clientId = `client_${token.substring(tokenEnvPrefix.length, tokenEnvPrefix.length + 8)}`;
   
   // Mock tenant mapping: api_key -> p_client_id -> tenant_id
   // In production, this would be looked up from the API key store
