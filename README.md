@@ -1,5 +1,9 @@
 # Portal API
 
+[![Documentation](https://img.shields.io/badge/docs-live-brightgreen?style=flat-square&logo=book&logoColor=white)](https://docs.datahubportal.com)
+[![API Status](https://img.shields.io/badge/API-online-brightgreen?style=flat-square&logo=statuspage&logoColor=white)](https://api.datahubportal.com/v1/health)
+[![Try It](https://img.shields.io/badge/Try_It-interactive-blue?style=flat-square&logo=swagger&logoColor=white)](https://docs.datahubportal.com)
+
 Portal API - Tenant-aware REST API for contacts, jobs, and files management.
 
 ## 🚀 Quick Start

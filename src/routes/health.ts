@@ -7,10 +7,18 @@ router.get('/health', (req: Request, res: Response) => {
   const circuitBreakers = reliabilityService.getCircuitBreakerStatuses();
   const hasOpenCircuits = Object.values(circuitBreakers).some((cb: any) => cb.state === 'OPEN');
   
+  // P0 Fix: Add required authMode and mockMode indicators
+  const authMode = process.env.AUTH_MODE === 'strict' ? 'strict' : 'permissive';
+  const mockMode = process.env.MOCK_MODE === 'on' || process.env.MOCK_MODE === 'true';
+  const environment = process.env.NODE_ENV || 'development';
+
   const response = {
     status: hasOpenCircuits ? 'degraded' : 'healthy',
+    environment,
+    authMode,
+    mockMode,
     timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0-alpha',
+    version: process.env.npm_package_version || '1.0.0',
     traceId: req.traceId,
     circuitBreakers,
     ...(req.requestId && { requestId: req.requestId })

@@ -23,6 +23,14 @@ data:
             "value": "prod_azure_storage_secret_key"
           },
           {
+            "name": "supabase-url",
+            "value": "${SUPABASE_URL}"
+          },
+          {
+            "name": "supabase-service-role-key",
+            "value": "${SUPABASE_SERVICE_ROLE_KEY}"
+          },
+          {
             "name": "app-insights-connection-string",
             "value": "${APPLICATIONINSIGHTS_CONNECTION_STRING}"
           },
@@ -66,6 +74,26 @@ data:
                 "value": "production"
               },
               {
+                "name": "ENV",
+                "value": "production"
+              },
+              {
+                "name": "AUTH_MODE",
+                "value": "strict"
+              },
+              {
+                "name": "MOCK_MODE",
+                "value": "off"
+              },
+              {
+                "name": "ALLOW_ANON_DOCS",
+                "value": "false"
+              },
+              {
+                "name": "TOKEN_ENV_PREFIX",
+                "value": "dhp_live_"
+              },
+              {
                 "name": "PORT", 
                 "value": "3000"
               },
@@ -92,6 +120,34 @@ data:
               {
                 "name": "HSTS_INCLUDE_SUBDOMAINS",
                 "value": "true"
+              },
+              {
+                "name": "SUPABASE_URL",
+                "secretRef": "supabase-url"
+              },
+              {
+                "name": "SUPABASE_SERVICE_ROLE_KEY",
+                "secretRef": "supabase-service-role-key"
+              },
+              {
+                "name": "DB_SCHEMA",
+                "value": "public"
+              },
+              {
+                "name": "RPC_LIST_CONTACTS",
+                "value": "api_list_contacts"
+              },
+              {
+                "name": "RPC_GET_CONTACT",
+                "value": "api_get_contact"
+              },
+              {
+                "name": "RPC_LIST_JOBS",
+                "value": "api_list_jobs"
+              },
+              {
+                "name": "RPC_LIST_JOB_FILES",
+                "value": "api_list_job_files"
               },
               {
                 "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
@@ -182,6 +238,14 @@ data:
             "value": "staging_azure_storage_secret_key"
           },
           {
+            "name": "staging-supabase-url",
+            "value": "${STAGING_SUPABASE_URL}"
+          },
+          {
+            "name": "staging-supabase-service-role-key",
+            "value": "${STAGING_SUPABASE_SERVICE_ROLE_KEY}"
+          },
+          {
             "name": "staging-app-insights-connection-string",
             "value": "${STAGING_APPLICATIONINSIGHTS_CONNECTION_STRING}"
           },
@@ -217,6 +281,26 @@ data:
                 "value": "staging"
               },
               {
+                "name": "ENV",
+                "value": "staging"
+              },
+              {
+                "name": "AUTH_MODE",
+                "value": "strict"
+              },
+              {
+                "name": "MOCK_MODE",
+                "value": "off"
+              },
+              {
+                "name": "ALLOW_ANON_DOCS",
+                "value": "false"
+              },
+              {
+                "name": "TOKEN_ENV_PREFIX",
+                "value": "dhp_stg_"
+              },
+              {
                 "name": "ALLOWED_ORIGINS",
                 "value": "https://staging.datahubportal.com"
               },
@@ -227,6 +311,34 @@ data:
               {
                 "name": "HSTS_INCLUDE_SUBDOMAINS", 
                 "value": "false"
+              },
+              {
+                "name": "SUPABASE_URL",
+                "secretRef": "staging-supabase-url"
+              },
+              {
+                "name": "SUPABASE_SERVICE_ROLE_KEY",
+                "secretRef": "staging-supabase-service-role-key"
+              },
+              {
+                "name": "DB_SCHEMA",
+                "value": "public"
+              },
+              {
+                "name": "RPC_LIST_CONTACTS",
+                "value": "api_list_contacts"
+              },
+              {
+                "name": "RPC_GET_CONTACT",
+                "value": "api_get_contact"
+              },
+              {
+                "name": "RPC_LIST_JOBS",
+                "value": "api_list_jobs"
+              },
+              {
+                "name": "RPC_LIST_JOB_FILES",
+                "value": "api_list_job_files"
               },
               {
                 "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
