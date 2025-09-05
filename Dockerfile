@@ -19,6 +19,9 @@ RUN chmod +x node_modules/.bin/*
 # Build TypeScript to JavaScript
 RUN npm run build
 
+# Copy JavaScript files that aren't compiled (like tenant-admin.js)
+RUN find src -name "*.js" -exec cp --parents {} dist/ \;
+
 # Production stage
 FROM node:20-alpine
 
