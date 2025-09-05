@@ -8,7 +8,7 @@ dotenv.config();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const app = createApp();
+const app = createApp(); // Trigger reload
 
 app.listen(PORT, () => {
   logger.info(`Portal API server started`, {
