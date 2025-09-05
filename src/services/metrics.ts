@@ -290,14 +290,14 @@ export class MetricsService {
     // Request count
     lines.push('# HELP http_requests_total Total HTTP requests');
     lines.push('# TYPE http_requests_total counter');
-    for (const [key, metric] of Object.entries(metrics)) {
+    for (const [, metric] of Object.entries(metrics)) {
       lines.push(`http_requests_total{method="${metric.method}",endpoint="${metric.endpoint}"} ${metric.requestCount}`);
     }
 
     // Request latency
     lines.push('# HELP http_request_duration_ms HTTP request latency in milliseconds');
     lines.push('# TYPE http_request_duration_ms histogram');
-    for (const [key, metric] of Object.entries(metrics)) {
+    for (const [, metric] of Object.entries(metrics)) {
       const labels = `method="${metric.method}",endpoint="${metric.endpoint}"`;
       lines.push(`http_request_duration_ms{${labels},quantile="0.5"} ${metric.latency.p50}`);
       lines.push(`http_request_duration_ms{${labels},quantile="0.95"} ${metric.latency.p95}`);
@@ -309,7 +309,7 @@ export class MetricsService {
     // Error rate
     lines.push('# HELP http_requests_errors_total Total HTTP request errors');
     lines.push('# TYPE http_requests_errors_total counter');
-    for (const [key, metric] of Object.entries(metrics)) {
+    for (const [, metric] of Object.entries(metrics)) {
       lines.push(`http_requests_errors_total{method="${metric.method}",endpoint="${metric.endpoint}"} ${metric.errorRate.errorCount}`);
     }
 

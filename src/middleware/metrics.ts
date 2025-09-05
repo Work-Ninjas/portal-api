@@ -40,7 +40,7 @@ export function metricsMiddleware(req: Request, res: Response, next: NextFunctio
     }
 
     // Call original end method
-    return originalEnd.apply(this, args);
+    return (originalEnd as any).apply(this, args);
   };
 
   next();
