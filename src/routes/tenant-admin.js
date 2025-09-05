@@ -1,5 +1,5 @@
-// F4-B Tenant Admin Routes - Server-side token generation
-// No browser crypto - all token generation server-side with @datahubportal/tokens
+// F4-B Tenant Admin Routes - Server-side token generation with proper environment scoping
+// Implements consistent client_id + token_env scoping across all operations
 
 const express = require('express');
 const { initTokens, generateToken } = require('@datahubportal/tokens');
@@ -7,6 +7,9 @@ const { getDatabase } = require('../services/database');
 const { logger } = require('../utils/logger');
 const { problem } = require('../middleware/bearerAuth');
 const { v4: uuidv4 } = require('uuid');
+
+// Server-side environment scoping - always filter by this environment
+const REQUIRED_ENV = process.env.TOKEN_ENV === 'live' ? 'live' : 'stg';
 
 const router = express.Router();
 
@@ -28,348 +31,173 @@ function requirePortalSession(req, res, next) {
   const sessionClientId = req.headers['x-client-id']; // From portal session
   const sessionUserId = req.headers['x-user-id']; // From portal session
   
-  if (!sessionClientId || !sessionUserId) {
+  if (!sessionClientId) {
+    logger.warn('F4-B: Missing client_id in portal session', { traceId });
     return problem(res, 401, 'unauthorized', 'Portal session required (missing client_id or user_id)', traceId);
   }
   
+  // Validate UUID format for client_id
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionClientId)) {
+    logger.warn('F4-B: Invalid client_id format', { client_id: sessionClientId, traceId });
+    return problem(res, 400, 'invalid_client_id', 'Invalid client_id format', traceId);
+  }
+  
+  // Store context for use in route handlers
   req.context = {
     client_id: sessionClientId,
-    actor_user_id: sessionUserId, // Real user ID from portal session
-    traceId
+    actor_user_id: sessionUserId || 'anonymous', // Handle optional user_id
+    traceId: traceId
   };
+  
+  logger.info('F4-B: Portal session validated', { 
+    client_id: sessionClientId,
+    env: REQUIRED_ENV,
+    traceId 
+  });
   
   next();
 }
-
-// POST /tenant/v1/api-keys - Create new API key (server-side generation)
-router.post('/api-keys', requirePortalSession, async (req, res) => {
-  const { client_id, actor_user_id, traceId } = req.context;
-  const { label, expires_at } = req.body;
-  
-  try {
-    // F4-B: Server-side token generation with @datahubportal/tokens
-    const env = process.env.TOKEN_ENV === 'live' ? 'live' : 'stg';
-    logger.info('F4-B: Generating token server-side', { env, client_id, traceId });
-    
-    // Initialize tokens package before generating
-    await initTokens({
-      getPepper: async (saltId) => {
-        // Development pepper - use environment variable in production
-        return process.env.API_TOKEN_PEPPER_v1 || 'development-pepper-for-testing-only';
-      }
-    });
-    
-    const { plaintext, publicId, hash, hashVersion, hashSaltId } = await generateToken(env);
-    
-    // F4-B: NO logs with plaintext - only publicId for debug
-    logger.info('F4-B: Token generated successfully', { 
-      prefix_public_id: publicId, 
-      env, 
-      client_id, 
-      traceId 
-    });
-    
-    // Insert with hash-only RPC
-    const db = getDatabase();
-    const { data, error } = await db.supabase.rpc('api_create_api_key', {
-      p_client_id: client_id,
-      p_label: label || 'Generated API Key',
-      p_actor_user_id: actor_user_id,
-      p_expires_at: expires_at || null,
-      p_prefix_public_id: publicId,
-      p_hash: hash,
-      p_hash_version: hashVersion,
-      p_hash_salt_id: hashSaltId,
-      p_scopes: ['read'],
-      p_token_env: env
-    });
-    
-    if (error) {
-      logger.error('F4-B: Database error creating API key', { error: error.message, traceId });
-      return problem(res, 500, 'internal_error', 'Failed to create API key', traceId);
-    }
-    
-    // F4-B: Return plaintext ONLY ONCE
-    const response = {
-      id: data.id,
-      label: data.label,
-      prefix_public_id: publicId,
-      status: 'active',
-      token_env: env,
-      api_key_plaintext: plaintext // ONLY returned once!
-    };
-    
-    logger.info('F4-B: API key created successfully', {
-      id: data.id,
-      prefix_public_id: publicId,
-      client_id,
-      env,
-      traceId
-    });
-    
-    res.status(201).json(response);
-    
-  } catch (error) {
-    logger.error('F4-B: Failed to create API key', {
-      error: error.message,
-      client_id,
-      traceId
-    });
-    
-    // F4-B: 503 if Key Vault fails (no fallback)
-    if (error.message.includes('Key Vault') || error.message.includes('pepper')) {
-      return problem(res, 503, 'service_unavailable', 'Token generation service unavailable', traceId);
-    }
-    
-    return problem(res, 500, 'internal_error', 'Failed to create API key', traceId);
-  }
-});
 
 // POST /tenant/v1/api-keys/{keyId}/rotate - Rotate API key
 router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) => {
   const { client_id, actor_user_id, traceId } = req.context;
   const { keyId } = req.params;
   
-  // B) Log puntual para diagnosticar 404
   logger.info('rotate_check', {
     path_id: keyId,
     derived_client_id: client_id,
-    token_env: process.env.TOKEN_ENV || 'not_set',
+    token_env: REQUIRED_ENV,
     traceId
   });
   
   try {
-    // F4-B: Server-side token generation
-    const env = process.env.TOKEN_ENV === 'live' ? 'live' : 'stg';
-    logger.info('F4-B: Rotating token server-side', { keyId, env, client_id, traceId });
-    
-    // Initialize tokens package before generating
-    await initTokens({
-      getPepper: async (saltId) => {
-        // Development pepper - use environment variable in production
-        return process.env.API_TOKEN_PEPPER_v1 || 'development-pepper-for-testing-only';
-      }
-    });
-    
-    const { plaintext, publicId, hash, hashVersion, hashSaltId } = await generateToken(env);
-    
-    logger.info('F4-B: New token generated for rotation', { 
-      keyId,
-      prefix_public_id: publicId, 
-      env, 
-      client_id, 
-      traceId 
-    });
-    
-    // F4-B: Direct Supabase update + manual audit (RPC has wrong column name)
     const db = getDatabase();
     
-    logger.info('F4-B: Starting database update for rotation', { 
-      keyId, 
-      client_id, 
-      newPublicId: publicId,
-      traceId 
-    });
-    
-    // F4-B: DEBUG - Test if record exists with SELECT first
-    const { data: testData, error: testError } = await db.supabase
+    // 1) Verify the current key exists and belongs to the correct environment
+    const { data: currentKey, error: selectError } = await db.supabase
       .from('api_keys')
-      .select('*')
+      .select('id, status, token_env, label')
       .match({ 
         id: keyId,
         client_id: client_id,
-        status: 'active'
-      });
-    
-    logger.info('F4-B: DEBUG - SELECT test result', { 
-      hasError: !!testError,
-      errorMessage: testError?.message,
-      dataLength: testData?.length || 0,
-      testData: testData,
-      keyId,
-      traceId 
-    });
-    
-    // F4-B: Log all query parameters for debugging
-    logger.info('F4-B: Rotation query parameters', {
-      keyId: keyId,
-      keyIdType: typeof keyId,
-      client_id: client_id,
-      clientIdType: typeof client_id,
-      status: 'active',
-      env: env,
-      traceId
-    });
-    
-    // Update the API key - use match() for better debugging
-    const updateData = {
-      prefix_public_id: publicId,
-      token_env: env,
-      hash: hash,
-      hash_version: hashVersion,
-      hash_salt_id: hashSaltId,
-      updated_at: new Date().toISOString()
-    };
-    
-    // Use match() with token_env filter for RLS policy compliance
-    const { data, error } = await db.supabase
-      .from('api_keys')
-      .update(updateData)
-      .match({ 
-        id: keyId,
-        client_id: client_id,
-        status: 'active'
+        token_env: REQUIRED_ENV
       })
-      .select('*');
+      .single();
     
-    logger.info('F4-B: Database update result', { 
-      hasError: !!error,
-      errorMessage: error?.message,
-      dataLength: data?.length || 0,
-      data: data,
-      keyId,
-      traceId 
-    });
-    
-    // Handle the result manually  
-    const updatedKey = data && data.length > 0 ? data[0] : null;
-    
-    // Manual audit logging (since RPC uses wrong column name api_key_id instead of resource_id)
-    if (!error && updatedKey) {
-      try {
-        await db.supabase
-          .from('api_key_audit')
-          .insert({
-            client_id: client_id,
-            event_type: 'api_key_rotated',
-            event_category: 'lifecycle',
-            severity: 'warning',
-            actor_user_id: actor_user_id,
-            resource_type: 'api_key',
-            resource_id: keyId,
-            details: {
-              old_key_id: keyId,
-              reason: 'user_initiated',
-              timestamp: new Date().toISOString(),
-              source: 'portal',
-              new_prefix_public_id: publicId,
-              token_env: env,
-              hash_version: hashVersion
-            }
-          });
-      } catch (auditError) {
-        logger.warn('F4-B: Audit logging failed for key rotation', { 
-          keyId, 
-          error: auditError.message 
-        });
-      }
-    }
-    
-    if (error) {
-      logger.error('F4-B: Database error rotating API key', { 
-        keyId, 
-        error: error.message, 
-        traceId 
-      });
-      return problem(res, 500, 'internal_error', 'Failed to rotate API key', traceId);
-    }
-    
-    if (!updatedKey) {
+    if (selectError || !currentKey) {
       logger.warn('rotate_not_found', {
         path_id: keyId,
         derived_client_id: client_id,
-        reason: 'no_row_for_id+client',
+        reason: 'no_row_for_id+client+env',
         traceId
       });
       return problem(res, 404, 'not_found', 'API key not found', traceId);
     }
     
-    // F4-B: Return new plaintext ONLY ONCE
-    const response = {
-      id: updatedKey.id,
-      label: updatedKey.label,
-      prefix_public_id: publicId,
-      status: 'active',
-      token_env: env,
-      api_key_plaintext: plaintext // ONLY returned once!
-    };
-    
-    logger.info('F4-B: API key rotated successfully', {
-      id: updatedKey.id,
-      keyId,
-      prefix_public_id: publicId,
-      client_id,
-      env,
-      traceId
-    });
-    
-    res.json(response);
-    
-  } catch (error) {
-    logger.error('F4-B: Failed to rotate API key', {
-      keyId,
-      error: error.message,
-      client_id,
-      traceId
-    });
-    
-    // F4-B: 503 if Key Vault fails
-    if (error.message.includes('Key Vault') || error.message.includes('pepper')) {
-      return problem(res, 503, 'service_unavailable', 'Token generation service unavailable', traceId);
+    if (currentKey.status !== 'active') {
+      logger.warn('rotate_not_active', {
+        path_id: keyId,
+        status: currentKey.status,
+        traceId
+      });
+      return problem(res, 409, 'not_active', 'API key is not active', traceId);
     }
     
-    return problem(res, 500, 'internal_error', 'Failed to rotate API key', traceId);
-  }
-});
-
-// POST /tenant/v1/api-keys/{keyId}/revoke - Revoke API key
-router.post('/api-keys/:keyId/revoke', requirePortalSession, async (req, res) => {
-  const { client_id, actor_user_id, traceId } = req.context;
-  const { keyId } = req.params;
-  
-  try {
-    const db = getDatabase();
-    const { data, error } = await db.supabase.rpc('api_revoke_api_key', {
-      p_client_id: client_id,
-      p_key_id: keyId,
-      p_actor_user_id: actor_user_id
+    // 2) Initialize tokens package and generate new token
+    await initTokens({
+      getPepper: async (saltId) => {
+        return process.env.API_TOKEN_PEPPER_v1 || 'development-pepper-for-testing-only';
+      }
     });
     
-    if (error) {
-      logger.error('F4-B: Database error revoking API key', { 
-        keyId, 
-        error: error.message, 
+    const { plaintext, publicId, hash, hashVersion, hashSaltId } = await generateToken(REQUIRED_ENV);
+    
+    logger.info('F4-B: New token generated for rotation', { 
+      keyId, 
+      env: REQUIRED_ENV, 
+      client_id, 
+      prefix_public_id: publicId, 
+      traceId 
+    });
+    
+    // 3) Create new key and revoke old key
+    const newKeyId = uuidv4();
+    
+    // Create new active key
+    const { data: newKey, error: insertError } = await db.supabase
+      .from('api_keys')
+      .insert({
+        id: newKeyId,
+        client_id: client_id,
+        label: currentKey.label || 'Rotated Key',
+        prefix_public_id: publicId,
+        token_env: REQUIRED_ENV,
+        hash: hash,
+        hash_version: hashVersion,
+        hash_salt_id: hashSaltId,
+        status: 'active',
+        created_at: new Date().toISOString()
+      })
+      .select('id, prefix_public_id, token_env, created_at')
+      .single();
+    
+    if (insertError) {
+      logger.error('F4-B: Failed to create new API key', { 
+        error: insertError.message,
+        keyId,
         traceId 
       });
-      return problem(res, 500, 'internal_error', 'Failed to revoke API key', traceId);
+      return problem(res, 500, 'internal_error', 'Failed to create new API key', traceId);
     }
     
-    if (!data) {
-      return problem(res, 404, 'not_found', 'API key not found', traceId);
+    // Revoke the old key
+    const { error: revokeError } = await db.supabase
+      .from('api_keys')
+      .update({ 
+        status: 'revoked',
+        revoked_at: new Date().toISOString()
+      })
+      .match({ 
+        id: keyId,
+        client_id: client_id,
+        token_env: REQUIRED_ENV
+      });
+    
+    if (revokeError) {
+      logger.error('F4-B: Failed to revoke old API key', { 
+        error: revokeError.message,
+        keyId,
+        traceId 
+      });
+      // Continue anyway - new key was created successfully
     }
     
-    logger.info('F4-B: API key revoked successfully', {
-      id: data.id,
-      keyId,
+    logger.info('F4-B: API key rotated successfully', { 
+      oldKeyId: keyId,
+      newKeyId: newKey.id,
       client_id,
-      traceId
+      env: REQUIRED_ENV,
+      traceId 
     });
     
-    res.json({
-      id: data.id,
-      status: 'revoked',
-      revoked_at: new Date().toISOString()
+    // Return the new API key with plaintext token
+    res.status(201).json({
+      id: newKey.id,
+      prefix_public_id: newKey.prefix_public_id,
+      token_env: newKey.token_env,
+      api_key_plaintext: plaintext,
+      created_at: newKey.created_at,
+      revoked_key_id: keyId
     });
     
   } catch (error) {
-    logger.error('F4-B: Failed to revoke API key', {
-      keyId,
-      error: error.message,
-      client_id,
-      traceId
+    logger.error('F4-B: Rotation failed', { 
+      keyId, 
+      client_id, 
+      error: error.message, 
+      traceId 
     });
-    
-    return problem(res, 500, 'internal_error', 'Failed to revoke API key', traceId);
+    return problem(res, 500, 'internal_error', 'Token rotation failed', traceId);
   }
 });
 
@@ -381,11 +209,17 @@ router.get('/api-keys', requirePortalSession, async (req, res) => {
   
   try {
     const db = getDatabase();
-    const { data, error } = await db.supabase.rpc('api_list_api_keys', {
-      p_client_id: client_id,
-      p_limit: limit,
-      p_offset: offset
-    });
+    
+    // Direct query with proper environment scoping
+    const { data, error } = await db.supabase
+      .from('api_keys')
+      .select('id, client_id, label, prefix_public_id, status, token_env, created_at, last_used_at, expires_at')
+      .match({ 
+        client_id: client_id,
+        token_env: REQUIRED_ENV
+      })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
     
     if (error) {
       logger.error('F4-B: Database error listing API keys', { 
@@ -395,16 +229,8 @@ router.get('/api-keys', requirePortalSession, async (req, res) => {
       return problem(res, 500, 'internal_error', 'Failed to list API keys', traceId);
     }
     
-    // F4-B: Handle RPC response format - data could be an array or object with data property
-    let apiKeys = [];
-    if (Array.isArray(data)) {
-      apiKeys = data;
-    } else if (data && Array.isArray(data.data)) {
-      apiKeys = data.data;
-    } else if (data) {
-      // Single key or unexpected format
-      apiKeys = [data];
-    }
+    // Direct query returns data array directly
+    const apiKeys = data || [];
     
     // F4-B: Return paginated list without secrets/hashes
     const mappedKeys = apiKeys.map(key => ({
@@ -418,34 +244,57 @@ router.get('/api-keys', requirePortalSession, async (req, res) => {
       expires_at: key.expires_at
     }));
     
-    const total = mappedKeys.length;
-    const hasMore = (offset + limit) < total;
+    // Get total count for pagination
+    const { count, error: countError } = await db.supabase
+      .from('api_keys')
+      .select('*', { count: 'exact', head: true })
+      .match({ 
+        client_id: client_id,
+        token_env: REQUIRED_ENV
+      });
     
-    logger.info('F4-B: API keys listed successfully', {
-      count: mappedKeys.length,
-      client_id,
-      limit,
+    const total = countError ? 0 : count;
+    
+    logger.info('F4-B: API keys listed successfully', { 
+      client_id, 
+      count: mappedKeys.length, 
+      limit, 
       offset,
-      traceId
+      env: REQUIRED_ENV,
+      traceId 
     });
     
     res.json({
       data: mappedKeys,
-      total: mappedKeys.length,
-      limit,
-      offset,
-      has_more: hasMore
+      total: total,
+      limit: limit,
+      offset: offset,
+      has_more: offset + limit < total
     });
     
   } catch (error) {
-    logger.error('F4-B: Failed to list API keys', {
-      error: error.message,
-      client_id,
-      traceId
+    logger.error('F4-B: List keys failed', { 
+      client_id, 
+      error: error.message, 
+      traceId 
     });
-    
     return problem(res, 500, 'internal_error', 'Failed to list API keys', traceId);
   }
+});
+
+// GET /tenant/v1/env - Get current environment
+router.get('/env', requirePortalSession, async (req, res) => {
+  const { traceId } = req.context;
+  
+  res.json({
+    environment: REQUIRED_ENV.toUpperCase(),
+    token_prefix: REQUIRED_ENV === 'live' ? 'dhp_live_' : 'dhp_stg_'
+  });
+  
+  logger.info('F4-B: Environment info requested', { 
+    env: REQUIRED_ENV, 
+    traceId 
+  });
 });
 
 module.exports = router;
