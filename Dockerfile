@@ -13,9 +13,6 @@ RUN npm ci --only=production
 # Copy source code
 COPY . .
 
-# Build if needed (uncomment if using TypeScript)
-# RUN npm run build
-
 # Production stage
 FROM node:18-alpine
 
