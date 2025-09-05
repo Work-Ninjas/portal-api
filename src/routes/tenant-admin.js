@@ -178,8 +178,7 @@ router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) =>
       .match({ 
         id: keyId,
         client_id: client_id,
-        status: 'active',
-        token_env: env
+        status: 'active'
       });
     
     logger.info('F4-B: DEBUG - SELECT test result', { 
@@ -219,8 +218,7 @@ router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) =>
       .match({ 
         id: keyId,
         client_id: client_id,
-        status: 'active',
-        token_env: env
+        status: 'active'
       })
       .select('*');
     
