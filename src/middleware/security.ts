@@ -61,11 +61,12 @@ export function createCorsOptions() {
         callback(null, true); // No origin in dev
       }
     },
-    methods: ['GET', 'HEAD', 'OPTIONS'], // Only safe methods - no POST/PUT/DELETE
+    methods: ['GET', 'HEAD', 'OPTIONS', 'POST'], // Add POST for API key rotation
     allowedHeaders: [
       'Authorization',
       'Content-Type', 
-      'X-Request-Id'
+      'X-Request-Id',
+      'x-user-id' // Required for portal integration
     ],
     exposedHeaders: [
       'X-RateLimit-Limit',
