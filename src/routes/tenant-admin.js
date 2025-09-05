@@ -58,6 +58,104 @@ function requirePortalSession(req, res, next) {
   next();
 }
 
+// POST /tenant/v1/api-keys - Create new API key
+router.post('/api-keys', requirePortalSession, async (req, res) => {
+  const { client_id, actor_user_id, traceId } = req.context;
+  const { label } = req.body;
+  
+  // Validate label
+  if (!label || typeof label !== 'string' || label.trim().length === 0) {
+    return problem(res, 400, 'invalid_label', 'Label is required and must be non-empty', traceId);
+  }
+  
+  if (label.length > 100) {
+    return problem(res, 400, 'label_too_long', 'Label must be 100 characters or less', traceId);
+  }
+  
+  logger.info('create_api_key_request', {
+    client_id: client_id,
+    label: label.trim(),
+    env: REQUIRED_ENV,
+    traceId
+  });
+  
+  try {
+    const db = getDatabase();
+    
+    // Initialize tokens package and generate new token
+    await initTokens({
+      getPepper: async (saltId) => {
+        return process.env.API_TOKEN_PEPPER_v1 || 'development-pepper-for-testing-only';
+      }
+    });
+    
+    const { plaintext, publicId, hash, hashVersion, hashSaltId } = await generateToken(REQUIRED_ENV);
+    
+    logger.info('F4-B: New API key token generated', { 
+      client_id, 
+      env: REQUIRED_ENV, 
+      prefix_public_id: publicId, 
+      traceId 
+    });
+    
+    // Create the API key
+    const newKeyId = uuidv4();
+    const { data: newKey, error: insertError } = await db.supabase
+      .from('api_keys')
+      .insert({
+        id: newKeyId,
+        client_id: client_id,
+        label: label.trim(),
+        prefix_public_id: publicId,
+        token_env: REQUIRED_ENV,
+        hash: hash,
+        hash_version: hashVersion,
+        hash_salt_id: hashSaltId,
+        status: 'active',
+        created_at: new Date().toISOString()
+      })
+      .select('id, label, prefix_public_id, token_env, status, created_at')
+      .single();
+    
+    if (insertError) {
+      logger.error('F4-B: Failed to create API key', { 
+        error: insertError.message,
+        client_id,
+        traceId 
+      });
+      return problem(res, 500, 'internal_error', 'Failed to create API key', traceId);
+    }
+    
+    logger.info('F4-B: API key created successfully', { 
+      keyId: newKey.id,
+      client_id,
+      env: REQUIRED_ENV,
+      label: newKey.label,
+      traceId 
+    });
+    
+    // Return the new API key with plaintext token
+    res.status(201).json({
+      id: newKey.id,
+      label: newKey.label,
+      prefix_public_id: newKey.prefix_public_id,
+      token_env: newKey.token_env,
+      status: newKey.status,
+      api_key_plaintext: plaintext,
+      created_at: newKey.created_at
+    });
+    
+  } catch (error) {
+    logger.error('F4-B: Create API key failed', { 
+      client_id, 
+      label,
+      error: error.message, 
+      traceId 
+    });
+    return problem(res, 500, 'internal_error', 'Failed to create API key', traceId);
+  }
+});
+
 // POST /tenant/v1/api-keys/{keyId}/rotate - Rotate API key
 router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) => {
   const { client_id, actor_user_id, traceId } = req.context;
