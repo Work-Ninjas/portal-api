@@ -27,7 +27,17 @@ export function createApp(): Application {
         return callback(null, true);
       }
       
-      // Allow production origins if configured
+      // Get allowed origins from environment variable or use defaults
+      const allowedOrigins = process.env.ALLOWED_ORIGINS 
+        ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+        : ['https://datahubportal.com', 'https://staging.datahubportal.com'];
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Fallback to legacy CORS_ORIGIN if configured
       if (process.env.CORS_ORIGIN && origin === process.env.CORS_ORIGIN) {
         return callback(null, true);
       }
@@ -35,7 +45,8 @@ export function createApp(): Application {
       // Reject other origins
       callback(new Error('Not allowed by CORS'));
     },
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-client-id']
   }));
 
   // Rate limiting
