@@ -1,0 +1,45 @@
+name: Trigger auto deployment for portal-api-prod
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - '**'
+    - '.github/workflows/portal-api-prod-AutoDeployTrigger-b0a6f141-e332-4a89-9f30-d04fe5d88ad3.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:
+      
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.PORTALAPIPROD_AZURE_CREDENTIALS }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          _dockerfilePathKey_: _dockerfilePath_
+          _targetLabelKey_: _targetLabel_
+          registryUrl: portalapiacr.azurecr.io
+          registryUsername: ${{ secrets.PORTALAPIPROD_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.PORTALAPIPROD_REGISTRY_PASSWORD }}
+          containerAppName: portal-api-prod
+          resourceGroup: rg-data-migration-portal-prod
+          imageToBuild: portalapiacr.azurecr.io/portal-api:${{ github.sha }}
+          
+            
+
+     
+
