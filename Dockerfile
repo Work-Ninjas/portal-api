@@ -13,6 +13,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Fix permissions for node_modules binaries
+RUN chmod +x node_modules/.bin/*
+
 # Build TypeScript to JavaScript
 RUN npm run build
 
