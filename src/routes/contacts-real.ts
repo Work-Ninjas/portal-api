@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { ApiError, ErrorCodes } from '../utils/errors';
-import { ContactsService } from '../services/contacts';
+import { ContactsService } from '../services/contacts-real';
 
 const router = Router();
 const contactsService = new ContactsService();
