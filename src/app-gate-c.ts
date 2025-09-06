@@ -10,6 +10,7 @@ import healthRoutes from './routes/health';
 import contactsRoutes from './routes/contacts-real';
 import jobsRoutes from './routes/jobs-real';
 import filesRoutes from './routes/files-real';
+import tenantAdminRoutes from './routes/tenant-admin';
 import { ApiError, ErrorCodes } from './utils/errors';
 
 export function createGateCApp(): Application {
@@ -52,6 +53,7 @@ export function createGateCApp(): Application {
   app.use('/v1', contactsRoutes);
   app.use('/v1', jobsRoutes);
   app.use('/v1', filesRoutes); // Gate C: Files with signed URLs
+  app.use('/tenant', tenantAdminRoutes); // Tenant admin routes for API key management
   
   // Metrics endpoint (for monitoring)
   app.get('/metrics', createMetricsRoute());

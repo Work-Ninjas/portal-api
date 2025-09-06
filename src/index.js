@@ -1,10 +1,10 @@
-// F4-B Portal API - Real Authentication with @datahubportal/tokens
+// F4-B Portal API - Real Authentication with tokens-real
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-// F4-B: Use official @datahubportal/tokens package with Key Vault
-const { initTokens, parseToken, verifyToken } = require('@datahubportal/tokens');
+// F4-B: Use tokens-real with Key Vault
+const { initTokens, parseToken, verifyToken } = require('./lib/tokens-real');
 const { DefaultAzureCredential } = require('@azure/identity');
 const { SecretClient } = require('@azure/keyvault-secrets');
 // F4-B: Import tenant admin routes for server-side token generation
@@ -40,7 +40,7 @@ async function initializeApp() {
     port: PORT
   });
 
-  // F4-B: Initialize @datahubportal/tokens package with Key Vault (NO fallback in prod)
+  // F4-B: Initialize tokens-real with Key Vault (NO fallback in prod)
   try {
     const keyVaultUri = process.env.KEYVAULT_URI || process.env.AZURE_KEY_VAULT_URL;
     let pepper;
@@ -82,9 +82,9 @@ async function initializeApp() {
       }
     });
     
-    logger.info('F4-B: @datahubportal/tokens initialized successfully');
+    logger.info('F4-B: tokens-real initialized successfully');
   } catch (error) {
-    logger.error('F4-B: Failed to initialize @datahubportal/tokens', { error: error.message });
+    logger.error('F4-B: Failed to initialize tokens-real', { error: error.message });
     // F4-B: NO fallback - fail fast if initialization fails
     process.exit(1);
   }

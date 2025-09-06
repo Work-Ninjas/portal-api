@@ -2,7 +2,7 @@
 // Implements consistent client_id + token_env scoping across all operations
 
 const express = require('express');
-const { initTokens, generateToken } = require('@datahubportal/tokens');
+const { initTokens, generateToken } = require('../lib/tokens-real');
 const { getDatabase } = require('../services/database');
 const { logger } = require('../utils/logger');
 const { problem } = require('../middleware/bearerAuth');
@@ -218,7 +218,29 @@ router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) =>
       traceId 
     });
     
-    // 3) Create new key and revoke old key
+    // 3) Revoke old key first, then create new key
+    // Revoke the old key first to free up space
+    const { error: revokeError } = await db.supabase
+      .from('api_keys')
+      .update({ 
+        status: 'revoked',
+        revoked_at: new Date().toISOString()
+      })
+      .match({ 
+        id: keyId,
+        client_id: client_id,
+        token_env: REQUIRED_ENV
+      });
+    
+    if (revokeError) {
+      logger.error('F4-B: Failed to revoke old API key', { 
+        error: revokeError.message,
+        keyId,
+        traceId 
+      });
+      return problem(res, 500, 'internal_error', 'Failed to revoke old API key', traceId);
+    }
+    
     const newKeyId = uuidv4();
     
     // Create new active key
@@ -246,28 +268,6 @@ router.post('/api-keys/:keyId/rotate', requirePortalSession, async (req, res) =>
         traceId 
       });
       return problem(res, 500, 'internal_error', 'Failed to create new API key', traceId);
-    }
-    
-    // Revoke the old key
-    const { error: revokeError } = await db.supabase
-      .from('api_keys')
-      .update({ 
-        status: 'revoked',
-        revoked_at: new Date().toISOString()
-      })
-      .match({ 
-        id: keyId,
-        client_id: client_id,
-        token_env: REQUIRED_ENV
-      });
-    
-    if (revokeError) {
-      logger.error('F4-B: Failed to revoke old API key', { 
-        error: revokeError.message,
-        keyId,
-        traceId 
-      });
-      // Continue anyway - new key was created successfully
     }
     
     logger.info('F4-B: API key rotated successfully', { 

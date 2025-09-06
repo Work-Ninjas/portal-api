@@ -1,5 +1,5 @@
-// F4-B: Strict Bearer Authentication using @datahubportal/tokens
-const { parseToken, verifyToken } = require('@datahubportal/tokens');
+// F4-B: Strict Bearer Authentication using tokens-real
+const { parseToken, verifyToken } = require('../lib/tokens-real');
 const { getDatabase } = require('../services/database');
 const { logger } = require('../utils/logger');
 
