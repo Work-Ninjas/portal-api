@@ -9,6 +9,7 @@ import healthRoutes from './routes/health';
 import contactsRoutes from './routes/contacts-real';
 import jobsRoutes from './routes/jobs-real';
 import filesRoutes from './routes/files-real';
+import activitiesRoutes from './routes/activities-real';
 import tenantAdminRoutes from './routes/tenant-admin';
 import { ApiError, ErrorCodes } from './utils/errors';
 
@@ -80,6 +81,7 @@ export function createApp(): Application {
   app.use('/v1', contactsRoutes);
   app.use('/v1', jobsRoutes);
   app.use('/v1', filesRoutes);
+  app.use('/v1', activitiesRoutes);
   
   // Tenant admin routes
   app.use('/tenant/v1', tenantAdminRoutes);

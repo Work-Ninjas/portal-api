@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../middleware/auth';
+import authMiddleware from '../middleware/auth';
 import { ApiError, ErrorCodes } from '../utils/errors';
 import { ContactsService } from '../services/contacts-rpc';
 
@@ -55,8 +55,8 @@ router.get('/contacts', authMiddleware, async (req: Request, res: Response) => {
 router.get('/contacts/:id', authMiddleware, async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // Validate ID format - return 400 for invalid format, reserve 404 for not found
-  if (!id.match(/^con_[a-z0-9]{8}$/)) {
+  // Validate ID format (UUID) - return 400 for invalid format, reserve 404 for not found
+  if (!id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
     throw new ApiError(400, ErrorCodes.BAD_REQUEST, 'Invalid contact ID format');
   }
 

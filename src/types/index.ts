@@ -95,3 +95,24 @@ export interface FileAsset {
   metadata?: Record<string, unknown>;
   created_at: string;
 }
+
+export type ActivityEntityType = 'job' | 'contact';
+
+export type ActivityType = 'user' | 'system';
+
+export type ActivityPriority = 'low' | 'normal' | 'high';
+
+export interface Activity {
+  id: string;
+  entity_type: ActivityEntityType;
+  entity_id: string;
+  author: string;
+  body_html: string;
+  body_text: string;
+  occurred_at: string;
+  activity_type: ActivityType;
+  priority: ActivityPriority;
+  created_at: string;
+  updated_at: string;
+  contact_id?: string;
+}

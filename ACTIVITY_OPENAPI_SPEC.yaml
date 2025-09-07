@@ -1,0 +1,538 @@
+# Activity Endpoints OpenAPI Specification
+# To be integrated into the main OpenAPI spec
+
+# Components (add to components section)
+components:
+  schemas:
+    ActivityEntityType:
+      type: string
+      enum: [job, contact]
+      description: The type of entity this activity is associated with
+      
+    ActivityType:
+      type: string  
+      enum: [user, system]
+      description: Whether the activity was created by a user or the system
+      
+    ActivityPriority:
+      type: string
+      enum: [low, normal, high]  
+      description: The priority level of the activity
+      
+    Activity:
+      type: object
+      required:
+        - id
+        - entity_type
+        - entity_id
+        - author
+        - body_html
+        - body_text
+        - occurred_at
+        - activity_type
+        - priority
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the activity
+        entity_type:
+          $ref: '#/components/schemas/ActivityEntityType'
+        entity_id:
+          type: string
+          format: uuid
+          description: ID of the entity this activity belongs to
+        author:
+          type: string
+          description: Name of the person or system that created this activity
+        body_html:
+          type: string
+          description: HTML content of the activity
+        body_text:
+          type: string  
+          description: Plain text content of the activity (HTML stripped)
+        occurred_at:
+          type: string
+          format: date-time
+          description: When the activity occurred
+        activity_type:
+          $ref: '#/components/schemas/ActivityType'
+        priority:
+          $ref: '#/components/schemas/ActivityPriority'
+        created_at:
+          type: string
+          format: date-time
+          description: When the activity record was created
+        updated_at:
+          type: string
+          format: date-time
+          description: When the activity record was last updated
+        contact_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated contact ID, if applicable
+        # Additional fields may be present for future extensibility
+        job_title:
+          type: string
+          description: Title of the associated job (when available)
+        contact_name:
+          type: string
+          description: Name of the associated contact (when available)
+          
+    ActivityListResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaginationResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Activity'
+
+# Paths (add to paths section)
+paths:
+  /v1/activity:
+    get:
+      summary: List activities
+      description: |
+        Retrieve a paginated list of activities. Activities represent messages, system events, 
+        and other timeline events associated with jobs and contacts.
+        
+        **Source**: `api_list_activity` (tenant-aware RPC function)
+        
+        **Note**: Responses may include additional fields beyond those documented. 
+        Clients should ignore unknown properties for forward compatibility.
+      tags:
+        - Activities
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: entity_type
+          in: query
+          description: Filter activities by entity type
+          schema:
+            $ref: '#/components/schemas/ActivityEntityType'
+        - name: entity_id
+          in: query
+          description: Filter activities by specific entity ID (must be used with entity_type)
+          schema:
+            type: string
+            format: uuid
+        - name: author
+          in: query
+          description: Filter activities by author name (partial match)
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Filter activities that occurred after this date
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: Filter activities that occurred before this date
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          description: Search activities by content or author (partial match)
+          schema:
+            type: string
+        - name: activity_type
+          in: query
+          description: Filter by activity type
+          schema:
+            $ref: '#/components/schemas/ActivityType'
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            $ref: '#/components/schemas/ActivityPriority'
+        - name: limit
+          in: query
+          description: Maximum number of activities to return (1-100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: offset
+          in: query
+          description: Number of activities to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: sort
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [occurred_at, created_at, updated_at, author]
+            default: occurred_at
+        - name: dir
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityListResponse'
+              examples:
+                user_activities:
+                  summary: User activities example
+                  value:
+                    data:
+                      - id: "123e4567-e89b-12d3-a456-426614174000"
+                        entity_type: "job"
+                        entity_id: "987fcdeb-51a2-43d7-8f9e-123456789abc"
+                        author: "John Doe"
+                        body_html: "Job milestone updated to <strong>In Progress</strong>"
+                        body_text: "Job milestone updated to In Progress"
+                        occurred_at: "2025-09-06T14:30:00Z"
+                        activity_type: "user"
+                        priority: "normal"
+                        created_at: "2025-09-06T14:30:00Z"
+                        updated_at: "2025-09-06T14:30:00Z"
+                        contact_id: null
+                    total: 150
+                    limit: 25
+                    offset: 0
+                    has_more: true
+                system_activities:
+                  summary: System activities example
+                  value:
+                    data:
+                      - id: "456e7890-e89b-12d3-a456-426614174001"
+                        entity_type: "job"
+                        entity_id: "987fcdeb-51a2-43d7-8f9e-123456789abc"
+                        author: "System"
+                        body_html: "Job milestone changed using Edit Progress"
+                        body_text: "Job milestone changed using Edit Progress"
+                        occurred_at: "2025-09-06T12:15:00Z"
+                        activity_type: "system"
+                        priority: "low"
+                        created_at: "2025-09-06T12:15:00Z"
+                        updated_at: "2025-09-06T12:15:00Z"
+                        contact_id: null
+                    total: 75
+                    limit: 25
+                    offset: 0
+                    has_more: true
+        '400':
+          description: Bad request (invalid parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_entity_params:
+                  summary: Missing entity_id with entity_type
+                  value:
+                    type: "https://httpstatuses.com/400"
+                    title: "Bad Request"
+                    status: 400
+                    code: "BAD_REQUEST"
+                    detail: "Both entity_type and entity_id must be provided together or both omitted"
+                    traceId: "c839f673-80c3-40ff-8a24-4ebbcf71ee9c"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -H "Authorization: Bearer YOUR_API_KEY" \
+                 -H "Accept: application/json" \
+                 "https://api.datahubportal.com/v1/activity?limit=10"
+        - lang: JavaScript
+          source: |
+            const response = await fetch('https://api.datahubportal.com/v1/activity?limit=10', {
+              headers: {
+                'Authorization': 'Bearer YOUR_API_KEY',
+                'Accept': 'application/json'
+              }
+            });
+            const activities = await response.json();
+        - lang: Python
+          source: |
+            import requests
+            
+            response = requests.get(
+                'https://api.datahubportal.com/v1/activity',
+                headers={
+                    'Authorization': 'Bearer YOUR_API_KEY',
+                    'Accept': 'application/json'
+                },
+                params={'limit': 10}
+            )
+            activities = response.json()
+
+  /v1/jobs/{jobId}/activity:
+    get:
+      summary: List job activities
+      description: |
+        Retrieve a paginated list of activities for a specific job. This endpoint 
+        automatically filters activities where entity_type='job' and entity_id=jobId.
+        
+        **Source**: `api_list_activity` (tenant-aware RPC function)
+        
+        **Note**: Responses may include additional fields beyond those documented.
+        Clients should ignore unknown properties for forward compatibility.
+      tags:
+        - Activities
+        - Jobs
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Job ID to get activities for
+          schema:
+            type: string
+            format: uuid
+        - name: author
+          in: query
+          description: Filter activities by author name (partial match)
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Filter activities that occurred after this date
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: Filter activities that occurred before this date
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          description: Search activities by content or author (partial match)
+          schema:
+            type: string
+        - name: activity_type
+          in: query
+          description: Filter by activity type
+          schema:
+            $ref: '#/components/schemas/ActivityType'
+        - name: priority
+          in: query
+          description: Filter by priority level
+          schema:
+            $ref: '#/components/schemas/ActivityPriority'
+        - name: limit
+          in: query
+          description: Maximum number of activities to return (1-100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: offset
+          in: query
+          description: Number of activities to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: sort
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+            enum: [occurred_at, created_at, updated_at, author]
+            default: occurred_at
+        - name: dir
+          in: query
+          description: Sort direction
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of job activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityListResponse'
+        '400':
+          description: Invalid job ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Job not found or no activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -H "Authorization: Bearer YOUR_API_KEY" \
+                 -H "Accept: application/json" \
+                 "https://api.datahubportal.com/v1/jobs/123e4567-e89b-12d3-a456-426614174000/activity"
+        - lang: JavaScript
+          source: |
+            const jobId = '123e4567-e89b-12d3-a456-426614174000';
+            const response = await fetch(`https://api.datahubportal.com/v1/jobs/${jobId}/activity`, {
+              headers: {
+                'Authorization': 'Bearer YOUR_API_KEY',
+                'Accept': 'application/json'
+              }
+            });
+            const activities = await response.json();
+        - lang: Python
+          source: |
+            import requests
+            
+            job_id = '123e4567-e89b-12d3-a456-426614174000'
+            response = requests.get(
+                f'https://api.datahubportal.com/v1/jobs/{job_id}/activity',
+                headers={
+                    'Authorization': 'Bearer YOUR_API_KEY',
+                    'Accept': 'application/json'
+                }
+            )
+            activities = response.json()
+
+  /v1/activity/{id}:
+    get:
+      summary: Get single activity
+      description: |
+        Retrieve a single activity by its ID.
+        
+        **Source**: `api_get_activity` (tenant-aware RPC function)
+        
+        **Note**: Responses may include additional fields beyond those documented.
+        Clients should ignore unknown properties for forward compatibility.
+      tags:
+        - Activities
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Activity ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Activity details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+              examples:
+                user_activity:
+                  summary: User activity
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    entity_type: "job"
+                    entity_id: "987fcdeb-51a2-43d7-8f9e-123456789abc"
+                    author: "Jane Smith"
+                    body_html: "Updated the <em>material list</em> for this project"
+                    body_text: "Updated the material list for this project"
+                    occurred_at: "2025-09-06T16:45:00Z"
+                    activity_type: "user"
+                    priority: "high"
+                    created_at: "2025-09-06T16:45:00Z"
+                    updated_at: "2025-09-06T16:45:00Z"
+                    contact_id: null
+                    job_title: "Roof Repair - 123 Main St"
+        '400':
+          description: Invalid activity ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: Activity not found
+                  value:
+                    type: "https://httpstatuses.com/404"
+                    title: "Not Found"
+                    status: 404
+                    code: "NOT_FOUND"
+                    detail: "Activity not found"
+                    traceId: "c839f673-80c3-40ff-8a24-4ebbcf71ee9c"
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -H "Authorization: Bearer YOUR_API_KEY" \
+                 -H "Accept: application/json" \
+                 "https://api.datahubportal.com/v1/activity/123e4567-e89b-12d3-a456-426614174000"
+        - lang: JavaScript
+          source: |
+            const activityId = '123e4567-e89b-12d3-a456-426614174000';
+            const response = await fetch(`https://api.datahubportal.com/v1/activity/${activityId}`, {
+              headers: {
+                'Authorization': 'Bearer YOUR_API_KEY',
+                'Accept': 'application/json'
+              }
+            });
+            const activity = await response.json();
+        - lang: Python
+          source: |
+            import requests
+            
+            activity_id = '123e4567-e89b-12d3-a456-426614174000'
+            response = requests.get(
+                f'https://api.datahubportal.com/v1/activity/{activity_id}',
+                headers={
+                    'Authorization': 'Bearer YOUR_API_KEY',
+                    'Accept': 'application/json'
+                }
+            )
+            activity = response.json()

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { FileAsset, PaginationResponse } from '../types';
-import { authMiddleware } from '../middleware/auth';
+import authMiddleware from '../middleware/auth';
 import { ApiError, ErrorCodes } from '../utils/errors';
 
 const router = Router();

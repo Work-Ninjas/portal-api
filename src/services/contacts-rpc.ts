@@ -19,7 +19,9 @@ export class ContactsService {
       endpoint: '/v1/contacts',
       client_id: params.clientId,
       rpc: 'api_list_contacts',
-      traceId: params.traceId
+      traceId: params.traceId,
+      clientIdType: typeof params.clientId,
+      clientIdLength: params.clientId.length
     });
 
     try {
