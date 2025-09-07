@@ -111,7 +111,7 @@ export class JobsService {
     try {
       const db = getDatabase();
       
-      // Call api_get_job RPC - tenant resolution happens in DB
+      // Call api_get_job RPC - tenant resolution happens in DB  
       const { data: rawJob, error } = await db.supabase.rpc('api_get_job', {
         p_client_id: params.clientId,
         p_job_id: params.id
