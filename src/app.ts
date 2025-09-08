@@ -16,6 +16,9 @@ import { ApiError, ErrorCodes } from './utils/errors';
 export function createApp(): Application {
   const app = express();
 
+  // Trust proxy for Azure Container Apps
+  app.set('trust proxy', true);
+
   // Security middleware
   app.use(helmet());
   app.use(cors({
