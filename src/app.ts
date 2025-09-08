@@ -79,11 +79,11 @@ export function createApp(): Application {
   app.use(tracingMiddleware);
   app.use(loggingMiddleware);
 
-  // Routes
+  // Routes - Order matters! More specific routes first
   app.use('/v1', healthRoutes);
   app.use('/v1', contactsRoutes);
-  app.use('/v1', jobsRoutes);
-  app.use('/v1', filesRoutes);
+  app.use('/v1', filesRoutes);  // Files routes have specific paths like /jobs/:jobId/files
+  app.use('/v1', jobsRoutes);   // Jobs routes have general paths like /jobs/:id
   app.use('/v1', activitiesRoutes);
   
   // Tenant admin routes
