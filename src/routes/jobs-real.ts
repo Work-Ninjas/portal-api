@@ -63,22 +63,5 @@ router.get('/jobs', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.get('/jobs/:id', authMiddleware, async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  // Validate ID format (UUID)
-  if (!id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-    throw new ApiError(400, ErrorCodes.BAD_REQUEST, 'Invalid job ID format');
-  }
-
-  // Temporary direct response for debugging
-  res.status(200).json({
-    id,
-    message: "Job endpoint reached successfully",
-    timestamp: new Date().toISOString(),
-    clientId: req.clientId,
-    traceId: req.traceId
-  });
-});
 
 export default router;
