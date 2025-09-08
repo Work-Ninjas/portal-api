@@ -71,20 +71,14 @@ router.get('/jobs/:id', authMiddleware, async (req: Request, res: Response) => {
     throw new ApiError(400, ErrorCodes.BAD_REQUEST, 'Invalid job ID format');
   }
 
-  try {
-    const job = await jobsService.getJobById({
-      id,
-      traceId: req.traceId,
-      clientId: req.clientId!
-    });
-
-    res.status(200).json(job);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('not found')) {
-      throw new ApiError(404, ErrorCodes.NOT_FOUND, 'Job not found');
-    }
-    throw new ApiError(500, ErrorCodes.INTERNAL_ERROR, 'Failed to retrieve job');
-  }
+  // Temporary direct response for debugging
+  res.status(200).json({
+    id,
+    message: "Job endpoint reached successfully",
+    timestamp: new Date().toISOString(),
+    clientId: req.clientId,
+    traceId: req.traceId
+  });
 });
 
 export default router;
